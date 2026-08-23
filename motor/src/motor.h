@@ -53,7 +53,7 @@ public:
     // Órdenes del protocolo. Todas se llaman desde el hilo de mensajes.
     juce::var hola() const;
     juce::var listarDispositivos();
-    juce::var tonoDePrueba (double frecuencia);   // solo --sin-audio
+    juce::var tonoDePrueba (const juce::var& params);   // solo --sin-audio
 
     // Proyecto: una carpeta con proyecto.tracktionedit y media/.
     juce::var nuevoProyecto (const juce::String& carpeta);
@@ -68,7 +68,7 @@ public:
     juce::var mezclaPista (int indice, const juce::var& params);
     juce::var envioPista (int indice, int bus, double nivelDb);
     juce::var congelarPista (int indice, bool activo);
-    juce::var armarPista (int indice, bool activo, int entrada);
+    juce::var armarPista (int indice, bool activo, int entrada, bool midi);
 
     // Clips.
     juce::var importarClip (int pista, const juce::String& ruta, double inicio);
@@ -81,6 +81,11 @@ public:
     juce::var picosClip (const juce::String& id, int porSegundo);
     juce::var warpClip (const juce::String& id, const juce::var& params);
     double detectarBpm (const juce::File& archivo);
+
+    // Clips MIDI: el respaldo del piano roll.
+    juce::var crearClipMidi (int pista, double inicio, double compases);
+    juce::var notasClipMidi (const juce::String& id, const juce::var& notas);
+    juce::var cuantizarClipMidi (const juce::String& id, const juce::String& division);
 
     // Cadenas de la suite (pista -1 = máster).
     juce::var insertarPlugin (int pista, const juce::String& tipo, int indice);
@@ -153,6 +158,10 @@ private:
     // Señal de prueba en la ENTRADA de la bomba (Hz; 0 = silencio): con ella
     // la autoprueba y el CI graban de verdad sin micrófono. dispositivos.tono.
     std::atomic<float> tonoEntrada { 0.0f };
+
+    // Nota de prueba en la entrada MIDI de la bomba (-1 = ninguna): la bomba
+    // la toca a corcheas para que la grabación MIDI también se pruebe sola.
+    std::atomic<int> notaEntrada { -1 };
 
     bool reproduciendoAntes = false;
     int tics = 0; // del temporizador de 15 Hz: cada ~2 min toca autoguardado

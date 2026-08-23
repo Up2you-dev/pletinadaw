@@ -97,9 +97,13 @@ namespace protocolo
             if (metodo == "clip.picos")           return respuesta (id, motor.picosClip (params["id"].toString(), params.hasProperty ("porSegundo") ? (int) params["porSegundo"] : 50));
             if (metodo == "clip.warp")            return respuesta (id, motor.warpClip (params["id"].toString(), params));
 
-            if (metodo == "dispositivos.tono")    return respuesta (id, motor.tonoDePrueba ((double) params["frecuencia"]));
-            if (metodo == "pista.armar")          return respuesta (id, motor.armarPista ((int) params["pista"], (bool) params["activo"], params.hasProperty ("entrada") ? (int) params["entrada"] : 0));
+            if (metodo == "dispositivos.tono")    return respuesta (id, motor.tonoDePrueba (params));
+            if (metodo == "pista.armar")          return respuesta (id, motor.armarPista ((int) params["pista"], (bool) params["activo"], params.hasProperty ("entrada") ? (int) params["entrada"] : 0, params.hasProperty ("midi") && (bool) params["midi"]));
             if (metodo == "transporte.grabar")    return respuesta (id, motor.grabar (params));
+
+            if (metodo == "clip.midi.crear")      return respuesta (id, motor.crearClipMidi ((int) params["pista"], (double) params["inicio"], params.hasProperty ("compases") ? (double) params["compases"] : 1.0));
+            if (metodo == "clip.midi.notas")      return respuesta (id, motor.notasClipMidi (params["id"].toString(), params["notas"]));
+            if (metodo == "clip.midi.cuantizar")  return respuesta (id, motor.cuantizarClipMidi (params["id"].toString(), params["division"].toString()));
 
             if (metodo == "plugin.insertar")      return respuesta (id, motor.insertarPlugin (params.hasProperty ("pista") ? (int) params["pista"] : -1, params["tipo"].toString(), params.hasProperty ("indice") ? (int) params["indice"] : -1));
             if (metodo == "plugin.quitar")        return respuesta (id, motor.quitarPlugin (params.hasProperty ("pista") ? (int) params["pista"] : -1, (int) params["indice"]));

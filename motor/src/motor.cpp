@@ -9,6 +9,7 @@
 #include "efectos.h"
 #include "efectos2.h"
 #include "efectos3.h"
+#include "efectos4.h"
 #include "protocolo.h"
 
 // TempoDetect no viaja en el header público del módulo: se incluye a pelo.
@@ -47,6 +48,8 @@ namespace
                                   SalaPlugin::xmlTypeName, PegamentoPlugin::xmlTypeName,
                                   DeeserPlugin::xmlTypeName, EQDinamicoPlugin::xmlTypeName,
                                   BalancinPlugin::xmlTypeName, ConvolucionPlugin::xmlTypeName,
+                                  BrumaPlugin::xmlTypeName, CintaPlugin::xmlTypeName,
+                                  PadsPlugin::xmlTypeName,
                                   ValvulasPlugin::xmlTypeName, ConsolaPlugin::xmlTypeName,
                                   RemachePlugin::xmlTypeName, OptoPlugin::xmlTypeName,
                                   LamparaPlugin::xmlTypeName, EcoPlugin::xmlTypeName,
@@ -351,6 +354,7 @@ juce::var Motor::listarPistas()
 
             if (auto* onda = dynamic_cast<te::WaveAudioClip*> (c))
             {
+                pon (d, "tipo", "audio");
                 pon (d, "ruta", onda->getCurrentSourceFile().getFullPathName());
                 pon (d, "duracionFuente", onda->getAudioFile().getLength());
                 pon (d, "entradaFundido", onda->getFadeIn().inSeconds());
@@ -358,6 +362,23 @@ juce::var Motor::listarPistas()
                 pon (d, "autoTempo", onda->getAutoTempo());
                 pon (d, "transposicion", onda->getPitchChange());
                 pon (d, "bpmFuente", onda->getLoopInfo().getBpm (onda->getAudioFile().getInfo()));
+            }
+            else if (auto* midi = dynamic_cast<te::MidiClip*> (c))
+            {
+                pon (d, "tipo", "midi");
+                pon (d, "cuantizacion", midi->getQuantisation().getType (false));
+
+                juce::Array<juce::var> notas;
+                for (auto* n : midi->getSequence().getNotes())
+                {
+                    auto nota = objeto();
+                    pon (nota, "nota", n->getNoteNumber());
+                    pon (nota, "inicio", n->getStartBeat().inBeats());
+                    pon (nota, "duracion", n->getLengthBeats().inBeats());
+                    pon (nota, "velocidad", n->getVelocity());
+                    notas.add (nota);
+                }
+                pon (d, "notas", notas);
             }
 
             clips.add (d);
@@ -631,6 +652,74 @@ juce::var Motor::warpClip (const juce::String& id, const juce::var& params)
         objetivo->setAutoTempo (activo);
     }
 
+    emitirModelo();
+    return juce::var (true);
+}
+
+juce::var Motor::crearClipMidi (int indicePista, double inicio, double compases)
+{
+    asegurarEdit();
+    auto* objetivo = pista (indicePista);
+    if (objetivo == nullptr)
+        throw std::runtime_error ("no existe la pista");
+
+    edit->getUndoManager().beginNewTransaction ("crear clip MIDI");
+
+    // La duración va en compases del proyecto: el clip nace cuadrado.
+    auto& secuenciaTempo = edit->tempoSequence;
+    const auto desde = te::TimePosition::fromSeconds (juce::jmax (0.0, inicio));
+    const double pulsos = secuenciaTempo.getTimeSig (0)->numerator.get() * juce::jlimit (0.25, 64.0, compases);
+    const auto fin = secuenciaTempo.toTime (secuenciaTempo.toBeats (desde) + te::BeatDuration::fromBeats (pulsos));
+
+    auto nuevo = objetivo->insertMIDIClip ({ desde, fin }, nullptr);
+    if (nuevo == nullptr)
+        throw std::runtime_error ("no se pudo crear el clip MIDI");
+
+    emitirModelo();
+    auto r = objeto();
+    pon (r, "id", nuevo->itemID.toString());
+    return r;
+}
+
+juce::var Motor::notasClipMidi (const juce::String& id, const juce::var& notas)
+{
+    auto* objetivo = dynamic_cast<te::MidiClip*> (clip (id));
+    if (objetivo == nullptr)
+        throw std::runtime_error ("no existe el clip MIDI");
+    if (notas.getArray() == nullptr)
+        throw std::runtime_error ("faltan las notas");
+
+    // El piano roll manda la lista entera: una transacción, un deshacer.
+    edit->getUndoManager().beginNewTransaction ("editar notas");
+    auto* um = &edit->getUndoManager();
+    auto& secuencia = objetivo->getSequence();
+    secuencia.clear (um);
+
+    for (const auto& n : *notas.getArray())
+        secuencia.addNote (juce::jlimit (0, 127, (int) n["nota"]),
+                           te::BeatPosition::fromBeats (juce::jmax (0.0, (double) n["inicio"])),
+                           te::BeatDuration::fromBeats (juce::jmax (0.0625, (double) n["duracion"])),
+                           juce::jlimit (1, 127, n.hasProperty ("velocidad") ? (int) n["velocidad"] : 100),
+                           0, um);
+
+    emitirModelo();
+    return juce::var (true);
+}
+
+juce::var Motor::cuantizarClipMidi (const juce::String& id, const juce::String& division)
+{
+    auto* objetivo = dynamic_cast<te::MidiClip*> (clip (id));
+    if (objetivo == nullptr)
+        throw std::runtime_error ("no existe el clip MIDI");
+
+    if (! te::QuantisationType::getAvailableQuantiseTypes (false).contains (division))
+        throw std::runtime_error ("división desconocida: " + division.toStdString()
+                                  + " (usa las de QuantisationType, p. ej. \"1/4 beat\")");
+
+    edit->getUndoManager().beginNewTransaction ("cuantizar");
+    te::QuantisationType tipo;
+    tipo.setType (division);
+    objetivo->setQuantisation (tipo);
     emitirModelo();
     return juce::var (true);
 }
@@ -973,7 +1062,7 @@ juce::var Motor::congelarPista (int indice, bool activo)
     return juce::var (objetivo->isFrozen (te::Track::individualFreeze));
 }
 
-juce::var Motor::armarPista (int indice, bool activo, int entrada)
+juce::var Motor::armarPista (int indice, bool activo, int entrada, bool midi)
 {
     asegurarEdit();
     auto* objetivo = pista (indice);
@@ -988,11 +1077,14 @@ juce::var Motor::armarPista (int indice, bool activo, int entrada)
 
     juce::Array<te::InputDeviceInstance*> entradas;
     for (auto* instancia : contexto->getAllInputs())
-        if (instancia->getInputDevice().getDeviceType() == te::InputDevice::waveDevice)
+    {
+        const auto tipo = instancia->getInputDevice().getDeviceType();
+        if (midi ? (tipo != te::InputDevice::waveDevice) : (tipo == te::InputDevice::waveDevice))
             entradas.add (instancia);
+    }
 
     if (entradas.isEmpty())
-        throw std::runtime_error ("no hay entradas de audio que armar");
+        throw std::runtime_error (midi ? "no hay entradas MIDI que armar" : "no hay entradas de audio que armar");
 
     auto* instancia = entradas[juce::jlimit (0, entradas.size() - 1, entrada)];
 
@@ -1270,12 +1362,16 @@ juce::var Motor::grabar (const juce::var& params)
     return estadoTransporte();
 }
 
-juce::var Motor::tonoDePrueba (double frecuencia)
+juce::var Motor::tonoDePrueba (const juce::var& params)
 {
     if (! opciones.sinAudio)
         throw std::runtime_error ("la señal de prueba solo existe en el modo sin audio");
 
+    const double frecuencia = params.hasProperty ("frecuencia") ? (double) params["frecuencia"] : 0.0;
     tonoEntrada.store (frecuencia > 0.0 ? (float) juce::jlimit (20.0, 20000.0, frecuencia) : 0.0f);
+
+    const int nota = params.hasProperty ("nota") ? (int) params["nota"] : -1;
+    notaEntrada.store (nota >= 0 && nota <= 127 ? nota : -1);
     return juce::var (true);
 }
 
@@ -1643,6 +1739,8 @@ void Motor::arrancarBomba()
         auto siguiente = std::chrono::steady_clock::now();
 
         double faseEntrada = 0.0;
+        int notaSonando = -1;
+        juce::int64 cuentaNota = (juce::int64) 1e9;   // "lista": la primera nota no espera
 
         while (bombaViva.load())
         {
@@ -1666,6 +1764,28 @@ void Motor::arrancarBomba()
             }
 
             midi.clear();
+
+            // La nota de prueba: pulsos de 250 ms con su note-off, como si
+            // alguien marcase corcheas en un teclado MIDI enchufado.
+            {
+                const int pedida = notaEntrada.load();
+                const juce::int64 pulso = (juce::int64) (0.25 * opciones.frecuencia);
+
+                if (notaSonando >= 0 && (pedida < 0 || cuentaNota >= pulso))
+                {
+                    midi.addEvent (juce::MidiMessage::noteOff (1, notaSonando), 0);
+                    notaSonando = -1;
+                    cuentaNota = 0;
+                }
+                else if (pedida >= 0 && notaSonando < 0 && cuentaNota >= pulso)
+                {
+                    notaSonando = pedida;
+                    cuentaNota = 0;
+                    midi.addEvent (juce::MidiMessage::noteOn (1, notaSonando, (juce::uint8) 100), 0);
+                }
+                cuentaNota += buffer.getNumSamples();
+            }
+
             audioIO.processBlock (buffer, midi);
 
             const auto n = buffer.getNumSamples();
@@ -1837,6 +1957,25 @@ int Motor::autoprueba()
     exportar (normalizada.getFullPathName(), false, -16.0);
     const double lufsMedida = medirLufsArchivo (formatos(), normalizada);
 
+    // MIDI: un compás en la pista 4 con un arpegio de tres notas y la Bruma
+    // delante para que aquello suene de verdad.
+    const auto clipMidi = crearClipMidi (3, 0.0, 1.0);
+    {
+        auto lista = juce::var (juce::Array<juce::var>());
+        const int arpegio[3] = { 60, 64, 67 };
+        for (int i = 0; i < 3; ++i)
+        {
+            auto n = objeto();
+            pon (n, "nota", arpegio[i]);
+            pon (n, "inicio", i * 1.0);
+            pon (n, "duracion", 0.9);
+            pon (n, "velocidad", 100);
+            lista.getArray()->add (n);
+        }
+        notasClipMidi (clipMidi["id"].toString(), lista);
+    }
+    insertarPlugin (3, "bruma", 0);
+
     // Guardar, reabrir, y que el proyecto vuelva entero.
     guardarProyecto();
     const auto rutaProyecto = carpetaProyecto.getFullPathName();
@@ -1858,11 +1997,40 @@ int Motor::autoprueba()
             bpmVuelta = c["bpmFuente"];
         }
 
+    // Y el clip MIDI, con sus tres notas y la Bruma en la cadena.
+    int notasReabiertas = 0;
+    for (const auto& c : *reabierto["pistas"][3]["clips"].getArray())
+        if (c["tipo"].toString() == "midi")
+            notasReabiertas += (int) c["notas"].size();
+    const int pluginsPistaMidi = (int) reabierto["pistas"][3]["plugins"].size();
+
+    // Que la Bruma SUENE: la pista 4 en solo, desde el principio, y el pico
+    // del máster tiene que moverse con el arpegio.
+    {
+        auto soloPuesto = objeto(); pon (soloPuesto, "solo", true);
+        mezclaPista (3, soloPuesto);
+    }
+    irA (0.0);
+    picoIzq.store (0.0f);
+    picoDer.store (0.0f);
+    tocar();
+    float picoMidi = 0.0f;
+    for (int esperado = 0; esperado < 4000 && picoMidi < 0.03f; esperado += 100)
+    {
+        pausa (100);
+        picoMidi = juce::jmax (picoIzq.load(), picoDer.load());
+    }
+    parar();
+    {
+        auto soloQuitado = objeto(); pon (soloQuitado, "solo", false);
+        mezclaPista (3, soloQuitado);
+    }
+
     // Grabar de verdad: tono de prueba en la entrada de la bomba, la pista 3
     // armada, y unas décimas de transporte en marcha. La toma tiene que
     // aparecer como clip con archivo y con el tono dentro.
     tonoEntrada.store (330.0f);
-    armarPista (2, true, 0);
+    armarPista (2, true, 0, false);
     grabar (objeto());
     pausa (800);
     parar();
@@ -1885,6 +2053,25 @@ int Motor::autoprueba()
             }
         }
 
+    // Y grabar MIDI: la bomba marca la nota de prueba y la pista 4, armada
+    // por su entrada MIDI, tiene que acabar con más notas de las que tenía.
+    notaEntrada.store (62);
+    armarPista (3, true, 0, true);
+    grabar (objeto());
+    pausa (900);
+    parar();
+    notaEntrada.store (-1);
+    pausa (300);
+    armarPista (3, false, 0, true);
+
+    int notasTrasGrabar = 0;
+    {
+        const auto tras = listarPistas();
+        for (const auto& c : *tras["pistas"][3]["clips"].getArray())
+            if (c["tipo"].toString() == "midi")
+                notasTrasGrabar += (int) c["notas"].size();
+    }
+
     const bool avanza = segundos > 0.25;
     const bool suena = pico > 0.05f;
     const bool deshace = clipsTrasDeshacer == 3;
@@ -1898,7 +2085,10 @@ int Motor::autoprueba()
                      && std::abs (transposicionVuelta - 5.0) < 0.01
                      && std::abs (bpmVuelta - 120.0) < 0.5;
     const bool graba = duracionGrabada > 0.4 && picoGrabado > 0.15f;
-    const bool ok = avanza && suena && deshace && renderiza && persiste && automatiza && normaliza && warpea && graba;
+    const bool midiSuena = notasReabiertas == 3 && pluginsPistaMidi == 1 && picoMidi > 0.03f;
+    const bool midiGraba = notasTrasGrabar > notasReabiertas;
+    const bool ok = avanza && suena && deshace && renderiza && persiste && automatiza && normaliza && warpea
+                 && graba && midiSuena && midiGraba;
 
     auto r = objeto();
     pon (r, "ok", ok);
@@ -1916,6 +2106,9 @@ int Motor::autoprueba()
     pon (r, "bpmFuenteVuelta", bpmVuelta);
     pon (r, "duracionGrabada", duracionGrabada);
     pon (r, "picoGrabado", picoGrabado);
+    pon (r, "notasReabiertas", notasReabiertas);
+    pon (r, "picoMidi", picoMidi);
+    pon (r, "notasTrasGrabar", notasTrasGrabar);
     emitir (protocolo::evento ("prueba", r));
 
     return ok ? 0 : 1;

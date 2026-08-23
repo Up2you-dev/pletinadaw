@@ -39,6 +39,7 @@ target_sources(pletina-motor PRIVATE
   src/efectos.cpp
   src/efectos2.cpp
   src/efectos3.cpp
+  src/efectos4.cpp
   src/protocolo.cpp)
 
 target_compile_definitions(pletina-motor PRIVATE
