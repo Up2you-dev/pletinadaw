@@ -28,10 +28,10 @@ construcción están levantadas y verificadas en CI:
 - **Directo y terceros**: **Session View** con lanzamiento cuantizado y
   **hosting VST3** con escaneo en proceso hijo a prueba de plugins rotos.
 
-Queda el pulido de F6 (navegador de contenidos, manual, rendimiento a lo
-grande y el corte de la v1.0). El estado fase a fase, con lo verificado y
-lo pendiente dicho sin maquillaje, vive en
-[`docs/08-roadmap.md`](docs/08-roadmap.md).
+Queda el remate de F6 (navegador de contenidos, visor del manual en la app
+y el corte de la v1.0). El [manual](docs/manual.md) ya está escrito, y el
+estado fase a fase, con lo verificado y lo pendiente dicho sin maquillaje,
+vive en [`docs/08-roadmap.md`](docs/08-roadmap.md).
 
 ## Cómo está montado
 

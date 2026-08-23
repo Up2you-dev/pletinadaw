@@ -69,6 +69,7 @@ int main (int argc, char* argv[])
     Motor::Opciones opciones;
     bool prueba = false;
     bool pruebaEfectos = false;
+    bool pruebaCarga = false;
 
     for (int i = 1; i < argc; ++i)
     {
@@ -77,6 +78,7 @@ int main (int argc, char* argv[])
         if (arg == "--sin-audio")       opciones.sinAudio = true;
         else if (arg == "--prueba")     { opciones.sinAudio = true; prueba = true; }
         else if (arg == "--prueba-efectos") { opciones.sinAudio = true; pruebaEfectos = true; }
+        else if (arg == "--prueba-carga")   { opciones.sinAudio = true; pruebaCarga = true; }
         else if (arg == "--frecuencia" && i + 1 < argc)  opciones.frecuencia = juce::String (argv[++i]).getDoubleValue();
         else if (arg == "--bloque" && i + 1 < argc)      opciones.bloque = juce::String (argv[++i]).getIntValue();
         else if (arg == "--escanear-vst3" && i + 1 < argc)
@@ -99,6 +101,10 @@ int main (int argc, char* argv[])
         else if (pruebaEfectos)
         {
             codigoSalida = motor.pruebaEfectos();
+        }
+        else if (pruebaCarga)
+        {
+            codigoSalida = motor.pruebaCarga();
         }
         else
         {

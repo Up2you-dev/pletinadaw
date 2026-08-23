@@ -2220,6 +2220,98 @@ int Motor::pruebaEfectos()
     return fallos == 0 ? 0 : 1;
 }
 
+/* ================================================================ carga */
+
+int Motor::pruebaCarga()
+{
+    auto carpeta = engine.getTemporaryFileManager().getTempDirectory();
+
+    // Dos segundos de seno suave, compartidos por las cien pistas. A la
+    // frecuencia del motor: aquí se mide la mezcla, no la cola de proxies.
+    auto wav = carpeta.getChildFile ("carga.wav");
+    wav.deleteFile();
+    {
+        juce::WavAudioFormat formato;
+        auto flujo = wav.createOutputStream();
+        if (flujo == nullptr) return 1;
+        std::unique_ptr<juce::AudioFormatWriter> escritor (
+            formato.createWriterFor (flujo.release(), opciones.frecuencia, 2, 16, {}, 0));
+        if (escritor == nullptr) return 1;
+        const int n = (int) (2.0 * opciones.frecuencia);
+        juce::AudioBuffer<float> b (2, n);
+        for (int i = 0; i < n; ++i)
+        {
+            const float v = 0.05f * (float) std::sin (2.0 * juce::MathConstants<double>::pi * 330.0 * i / opciones.frecuencia);
+            b.setSample (0, i, v);
+            b.setSample (1, i, v);
+        }
+        escritor->writeFromAudioSampleBuffer (b, 0, n);
+    }
+
+    auto pausa = [] (int ms) { juce::MessageManager::getInstance()->runDispatchLoopUntil (ms); };
+
+    const auto proyecto = carpeta.getChildFile ("carga-proyecto");
+    proyecto.deleteRecursively();
+    nuevoProyecto (proyecto.getFullPathName());
+
+    // Dentro de media/, como cualquier importación de verdad.
+    const auto wavProyecto = carpetaMedia().getChildFile ("carga.wav");
+    wav.copyFileTo (wavProyecto);
+    wav = wavProyecto;
+
+    constexpr int PISTAS = 100;
+    const auto desdeCrear = juce::Time::getMillisecondCounterHiRes();
+    while (te::getAudioTracks (*edit).size() < PISTAS)
+        edit->insertNewAudioTrack (te::TrackInsertPoint (nullptr, te::getAudioTracks (*edit).getLast()), nullptr);
+    for (int i = 0; i < PISTAS; ++i)
+        if (auto* objetivo = pista (i))
+            objetivo->insertWaveClip ("carga", wav,
+                                      { { te::TimePosition(), te::TimePosition::fromSeconds (2.0) }, {} }, false);
+    const double msCrear = juce::Time::getMillisecondCounterHiRes() - desdeCrear;
+
+    // La foto del modelo con 100 pistas también tiene que salir con soltura.
+    const auto desdeModelo = juce::Time::getMillisecondCounterHiRes();
+    const auto modelo = listarPistas();
+    const double msModelo = juce::Time::getMillisecondCounterHiRes() - desdeModelo;
+    const int pistasModelo = (int) modelo["pistas"].size();
+
+    // Sonar: tres segundos de reloj de pared; el transporte debe seguirlos.
+    // Primero se espera al sonido: cien proxies tardan en arrancar.
+    picoIzq.store (0.0f);
+    picoDer.store (0.0f);
+    tocar();
+    for (int esperado = 0; esperado < 8000 && juce::jmax (picoIzq.load(), picoDer.load()) < 0.02f; esperado += 100)
+        pausa (100);
+
+    edit->getTransport().setPosition (te::TimePosition());
+    pausa (300);
+
+    // El temporizador de medidores pone los picos a cero 15 veces por segundo:
+    // el máximo se acumula muestreando, no leyendo una vez al final.
+    const double t0 = edit->getTransport().getPosition().inSeconds();
+    const auto pared0 = juce::Time::getMillisecondCounterHiRes();
+    float pico = 0.0f;
+    while (juce::Time::getMillisecondCounterHiRes() - pared0 < 3000.0)
+    {
+        pausa (50);
+        pico = juce::jmax (pico, picoIzq.load(), picoDer.load());
+    }
+    const double avanceTransporte = edit->getTransport().getPosition().inSeconds() - t0;
+    const double avancePared = (juce::Time::getMillisecondCounterHiRes() - pared0) / 1000.0;
+    parar();
+
+    const bool alDia = avanceTransporte > avancePared * 0.9;
+    const bool suena = pico > 0.02f;
+    const bool modeloBien = pistasModelo == PISTAS && msModelo < 2000.0;
+    const bool ok = alDia && suena && modeloBien;
+
+    std::cerr << "carga: " << PISTAS << " pistas | crear " << (int) msCrear << " ms | modelo "
+              << (int) msModelo << " ms | transporte " << avanceTransporte << " s en "
+              << avancePared << " s de pared | pico " << pico << "\n"
+              << (ok ? "carga: el motor aguanta\n" : "carga: NO aguanta\n");
+    return ok ? 0 : 1;
+}
+
 /* ============================================================ autoprueba */
 
 int Motor::autoprueba()

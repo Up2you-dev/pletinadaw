@@ -137,6 +137,10 @@ public:
     // tolerancia fina siguen pendientes; esto caza lo gordo en cada commit.)
     int pruebaEfectos();
 
+    // Carga: 100 pistas con clip y mezcla sonando a la vez; falla si el
+    // motor no aguanta el ritmo del reloj o el modelo revienta.
+    int pruebaCarga();
+
 private:
     void timerCallback() override;
     void asegurarEdit();

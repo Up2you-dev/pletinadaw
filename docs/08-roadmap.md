@@ -238,11 +238,16 @@ Lo que separa "funciona" de "se recomienda".
       El empaquetado está verificado en Linux (`--dir`: el motor viaja donde
       la app lo busca); la pasada Windows completa queda pendiente de CI con
       minutos.
+- [x] **Rendimiento, lo básico**: `--prueba-carga` monta 100 pistas con
+      clip sonando a la vez y falla si el transporte no sigue al reloj de
+      pared o la foto del modelo tarda; en el contenedor de CI: creación en
+      ~26 ms, modelo en 1 ms y transporte clavado (3,008 s en 3,009 s).
+      Pendiente: medidor de CPU/disco por pista y auditoría de PDC.
+- [x] **Manual en español** escrito ([manual](manual.md)): primeros pasos,
+      editar, mezclar, grabar, MIDI, sesión, VST3 y exportar. Pendiente: el
+      visor dentro de la app y las visitas guiadas de primer arranque (la
+      ayuda de atajos ya vive en `?`).
 - [ ] Navegador de contenidos (búsqueda, audición, favoritos, arrastre).
-- [ ] Rendimiento: proyectos de 100 pistas, medidor de CPU/disco por pista,
-      auditoría de PDC.
-- [ ] Manual en español dentro de la app; visitas guiadas de primer
-      arranque. (La ayuda de atajos ya vive en `?`.)
 - [ ] Actualizador que avisa (no que fuerza).
 - [ ] Beta pública, triaje, y corte de v1.0.
 
@@ -261,7 +266,7 @@ La foto honesta, de una pasada:
 | F3 clásicos y warp | ✅ | 15 clásicos sonando; warp 120→150 exacto | marcadores de warp, RubberBand, escucha con material real |
 | F4 grabar y MIDI | ✅ núcleo | grabación de audio y MIDI reales en CI; Bruma sonando | WASAPI/ASIO y MIDI físicos, punch, tomas en capas, afinador |
 | F5 VST3 y sesión | ✅ núcleo | hosting con VST3 real (−6 dB exactos) y lanzamiento en sesión | editores nativos, plugins comerciales, grupos, racks, sidechain |
-| F6 pulido | 🔨 | humo de 38 tipos, empaquetado validado | navegador, manual, rendimiento a lo grande, beta y corte v1.0 |
+| F6 pulido | 🔨 | humo de 38 tipos, carga de 100 pistas, empaquetado validado | navegador, visor del manual, CPU por pista, beta y corte v1.0 |
 
 Regla de lectura: "✅ núcleo" = el corazón de la fase funciona y está
 verificado; los flecos están listados en su sección y no se esconden. Lo

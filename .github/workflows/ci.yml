@@ -57,6 +57,8 @@ jobs:
           ./motor/build/pletina-motor_artefacts/Release/pletina-motor --prueba
       - name: humo de la suite entera (38 renders)
         run: ./motor/build/pletina-motor_artefacts/Release/pletina-motor --prueba-efectos
+      - name: carga de 100 pistas sonando
+        run: ./motor/build/pletina-motor_artefacts/Release/pletina-motor --prueba-carga
 
   motor-windows:
     name: motor · Windows
@@ -75,6 +77,8 @@ jobs:
         run: motor/build/pletina-motor_artefacts/Release/pletina-motor.exe --prueba
       - name: humo de la suite entera (38 renders)
         run: motor/build/pletina-motor_artefacts/Release/pletina-motor.exe --prueba-efectos
+      - name: carga de 100 pistas sonando
+        run: motor/build/pletina-motor_artefacts/Release/pletina-motor.exe --prueba-carga
       - uses: actions/upload-artifact@v4
         with:
           name: pletina-motor-windows
