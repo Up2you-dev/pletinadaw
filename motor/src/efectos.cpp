@@ -8,6 +8,7 @@
 
 #include "efectos.h"
 #include "efectos2.h"
+#include "efectos3.h"
 
 namespace
 {
@@ -41,6 +42,7 @@ void registrarEfectos (te::Engine& engine)
     plugins.createBuiltInType<EQDinamicoPlugin>();
     plugins.createBuiltInType<BalancinPlugin>();
     plugins.createBuiltInType<ConvolucionPlugin>();
+    registrarClasicos (engine);
 }
 
 bool esPluginDeSerie (const te::Plugin& plugin)

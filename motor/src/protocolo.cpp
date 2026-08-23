@@ -95,6 +95,7 @@ namespace protocolo
             if (metodo == "clip.fundidos")        return respuesta (id, motor.fundidosClip (params["id"].toString(), (double) params["entrada"], (double) params["salida"]));
             if (metodo == "clip.borrar")          return respuesta (id, motor.borrarClip (params["id"].toString()));
             if (metodo == "clip.picos")           return respuesta (id, motor.picosClip (params["id"].toString(), params.hasProperty ("porSegundo") ? (int) params["porSegundo"] : 50));
+            if (metodo == "clip.warp")            return respuesta (id, motor.warpClip (params["id"].toString(), params));
 
             if (metodo == "plugin.insertar")      return respuesta (id, motor.insertarPlugin (params.hasProperty ("pista") ? (int) params["pista"] : -1, params["tipo"].toString(), params.hasProperty ("indice") ? (int) params["indice"] : -1));
             if (metodo == "plugin.quitar")        return respuesta (id, motor.quitarPlugin (params.hasProperty ("pista") ? (int) params["pista"] : -1, (int) params["indice"]));

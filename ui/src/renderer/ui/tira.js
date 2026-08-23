@@ -23,10 +23,43 @@ const objetivo = () => (estado.pistaSeleccionada === -1
   : { nombre: estado.pistas[estado.pistaSeleccionada]?.nombre || '…',
       plugins: estado.pistas[estado.pistaSeleccionada]?.plugins || [] });
 
+/** El clip seleccionado, si es exactamente uno: el inspector es suyo. */
+const clipSolo = () => {
+  if (estado.seleccion.size !== 1) return null;
+  const [id] = estado.seleccion;
+  for (const pista of estado.pistas)
+    for (const clip of pista.clips || [])
+      if (clip.id === id) return clip;
+  return null;
+};
+
 export function pintarTira() {
   const host = $('#tira');
   const { nombre, plugins } = objetivo();
   const indicePista = estado.pistaSeleccionada;
+  const clip = clipSolo();
+
+  const inspector = clip === null ? '' : `
+    <div class="dispositivo inspector-clip activo">
+      <div class="cabeza">
+        <span class="nombre" title="Clip seleccionado">${esc(clip.nombre || 'Clip')}</span>
+      </div>
+      <div class="mandos mandos-clip">
+        <label class="campo" title="Tempo del material de origen: lo detecta el motor al importar y se puede corregir aquí">
+          <span>BPM fuente</span>
+          <input class="bpm-fuente" type="number" min="20" max="999" step="0.1"
+                 value="${clip.bpmFuente > 0 ? Number(clip.bpmFuente).toFixed(1) : ''}" placeholder="?">
+        </label>
+        <button class="warp${clip.autoTempo ? ' encendido' : ''}"
+                title="El clip sigue el tempo del proyecto (time-stretch)">Warp ${clip.autoTempo ? 'ON' : 'OFF'}</button>
+        <label class="campo" title="Transposición en semitonos, sin cambiar la duración">
+          <span>Transposición</span>
+          <input class="transposicion" type="number" min="-24" max="24" step="1"
+                 value="${Math.round(clip.transposicion || 0)}">
+        </label>
+      </div>
+    </div>
+  `;
 
   const tarjetas = plugins.map((plugin) => {
     const mandos = plugin.tipo === 'medidor'
@@ -57,12 +90,34 @@ export function pintarTira() {
 
   host.innerHTML = `
     <span class="titulo">${esc(nombre)}</span>
+    ${inspector}
     ${tarjetas}
     <div class="insertar">
       <button class="mas" title="Insertar dispositivo">${ICO.mas}</button>
       <div class="menu" hidden>${menu}</div>
     </div>
   `;
+
+  if (clip !== null) {
+    const tarjeta = $('.tira .inspector-clip');
+    const bpmFuente = tarjeta.querySelector('.bpm-fuente');
+    const transposicion = tarjeta.querySelector('.transposicion');
+
+    tarjeta.querySelector('.warp').addEventListener('click', () => {
+      // Para encender el warp hace falta tempo de origen: el detectado, el
+      // corregido en la caja, o el del proyecto como último recurso.
+      acciones.alWarp(clip.id, clip.autoTempo
+        ? { autoTempo: false }
+        : { autoTempo: true, bpmFuente: Number(bpmFuente.value) || clip.bpmFuente || estado.bpm });
+    });
+    bpmFuente.addEventListener('change', () => {
+      const bpm = Number(bpmFuente.value);
+      if (bpm >= 20 && bpm <= 999) acciones.alWarp(clip.id, { bpmFuente: bpm });
+    });
+    transposicion.addEventListener('change', () => {
+      acciones.alWarp(clip.id, { transposicion: Math.max(-24, Math.min(24, Number(transposicion.value) || 0)) });
+    });
+  }
 
   for (const tarjeta of $$('.tira .dispositivo')) {
     const indice = Number(tarjeta.dataset.indice);

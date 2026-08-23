@@ -8,13 +8,18 @@ grabación, MIDI, warping, y una suite propia de efectos con la cadena de
 mastering como pieza central. Sin nube, sin cuentas y sin IA: tus proyectos
 viven en tu disco.
 
-**Estado: F1 — editar y sonar (núcleo construido).** Ya se importa audio
-(diálogo o arrastrando), se edita en el timeline (mover, recortar, dividir,
-borrar, con imán y deshacer), se mezcla (faders, pan, mute/solo, VU por
-pista), se procesa con los primeros efectos de la suite (EQ Ocho, Compresor,
-Techo, Utilidad y el Medidor LUFS), se guarda como carpeta de proyecto y se
-exporta a WAV. Los flecos de F1 y el resto del mapa están en
-[`docs/08-roadmap.md`](docs/08-roadmap.md).
+**Estado: F3 — clásicos y warp (construida).** Ya se importa audio, se edita
+en el timeline (mover, recortar, dividir, duplicar, fundidos, imán,
+deshacer), se mezcla con envíos y retornos, se automatiza el volumen, y se
+procesa con una suite de **35 efectos propios**: la cadena de mastering
+completa (Multibanda, Anchura, Techo true-peak, Dither, y el Medidor
+LUFS/LRA/correlación/espectro), reverbs (Placa, Sala, Convolución, Muelle,
+Espejismo) y los quince clásicos vintage (Válvulas, Consola, Remache, Ópto,
+Lámpara, Eco de cinta, Coro, Trémolo, Peine…). Los clips hacen **warp** al
+tempo del proyecto con transposición y detección de BPM al importar. Se
+exporta a WAV/FLAC, por stems, y con objetivo de sonoridad verificado
+(−16 LUFS clavados en CI). Los flecos honestos de cada fase y el resto del
+mapa están en [`docs/08-roadmap.md`](docs/08-roadmap.md).
 
 ## Cómo está montado
 

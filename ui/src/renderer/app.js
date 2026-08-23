@@ -338,6 +338,10 @@ montarTira({
       .then(() => aviso(`Preset «${nombre}» guardado.`))
       .catch((e) => aviso(e.message));
   },
+  alWarp: (id, params) => {
+    if (!conectado()) return soloConMotor();
+    orden('clip.warp', { id, ...params }).catch((e) => aviso(e.message));
+  },
 });
 pintarChipMotor();
 
@@ -398,6 +402,8 @@ suscribir((_estado, cambios) => {
   if ('pistas' in cambios || 'master' in cambios || 'pistaSeleccionada' in cambios) {
     pintarMesa();
     pintarTira();
+  } else if ('seleccion' in cambios) {
+    pintarTira(); // el inspector de clip vive en la tira
   }
   if ('proyecto' in cambios || 'pistas' in cambios) montarRail();
 });

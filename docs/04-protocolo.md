@@ -23,28 +23,29 @@ Códigos de error al estilo JSON-RPC: `-32700` JSON ilegible, `-32601` método
 desconocido, `-32000` fallo de la operación (el mensaje viene en castellano y
 se puede enseñar tal cual).
 
-## Métodos (estado F1)
+## Métodos (estado F3)
 
 | Zona | Métodos | Notas |
 |---|---|---|
 | saludo | `hola`, `dispositivos.listar` | `hola` anuncia `capacidades[]` y la `suite[]` disponible |
 | proyecto | `proyecto.nuevo {carpeta}`, `proyecto.abrir {ruta}`, `proyecto.guardar` | el proyecto es una carpeta con `proyecto.tracktionedit` y `media/` |
 | modelo | `pistas.listar` | la foto completa (ver evento `modelo`) |
-| pistas | `pista.crear`, `pista.borrar`, `pista.renombrar`, `pista.mezcla {volumenDb, pan, mute, solo}` | `pista.mezcla` no emite `modelo`: los faders disparan decenas por segundo |
-| clips | `clip.importar {pista, ruta, inicio}`, `clip.mover {id, inicio, pista?}`, `clip.recortar {id, inicio, fin}`, `clip.dividir {id, segundos}`, `clip.borrar {id}`, `clip.picos {id, porSegundo}` | importar copia el audio a `media/` del proyecto |
-| suite | `plugin.insertar {pista, tipo, indice}`, `plugin.quitar`, `plugin.parametro {parametro, valor}`, `plugin.activar` | `pista = -1` es el máster; los tipos válidos vienen en `hola.suite` |
-| transporte | `transporte.tocar/parar/irA/estado/tempo/metronomo/bucle` | |
+| pistas | `pista.crear`, `pista.borrar`, `pista.renombrar`, `pista.mezcla {volumenDb, pan, mute, solo}`, `pista.envio {pista, bus, nivelDb}`, `pista.congelar {pista, activo}` | `pista.mezcla` no emite `modelo`: los faders disparan decenas por segundo. `pista.envio` crea el retorno del bus si no existe |
+| clips | `clip.importar {pista, ruta, inicio}`, `clip.mover {id, inicio, pista?}`, `clip.recortar {id, inicio, fin}`, `clip.dividir {id, segundos}`, `clip.duplicar {id}`, `clip.fundidos {id, entrada, salida}`, `clip.borrar {id}`, `clip.picos {id, porSegundo}`, `clip.warp {id, autoTempo?, bpmFuente?, transposicion?, modo?}` | importar copia el audio a `media/` y detecta el tempo de origen (SoundTouch, primer minuto); `clip.warp` enciende el autoTempo (el clip sigue el tempo del proyecto), corrige el BPM de origen, transpone en semitonos y elige el modo de stretch (`normal`/`mejor`) |
+| suite | `plugin.insertar {pista, tipo, indice}`, `plugin.quitar`, `plugin.parametro {parametro, valor}`, `plugin.activar`, `plugin.presets {tipo}`, `plugin.preset.guardar {pista, indice, nombre}`, `plugin.preset.cargar {pista, indice, nombre}` | `pista = -1` es el máster; los tipos válidos vienen en `hola.suite`; presets de fábrica y de usuario |
+| automatización | `automatizacion.puntos {pista, parametro, puntos[{t, v}]}` | `volumen`, `pan` o cualquier parámetro de la suite; volumen en dB |
+| transporte | `transporte.tocar/parar/irA/estado/tempo/metronomo/bucle` | cambiar el tempo remapea posiciones a compás y estira los clips con autoTempo |
 | deshacer | `deshacer.deshacer`, `deshacer.rehacer` | cada orden mutadora es una transacción |
-| render | `render.exportar {ruta}` | WAV; bloquea el hilo de mensajes lo que dure |
+| render | `render.exportar {ruta, stems?, lufsObjetivo?}` | WAV o FLAC por extensión; `stems` exporta pista a pista; `lufsObjetivo` normaliza en dos pasadas y se verifica midiendo el archivo |
 | fin | `salir` | |
 
-## Eventos (estado F1)
+## Eventos (estado F3)
 
 | Evento | Cuándo | Datos |
 |---|---|---|
 | `arrancado` | al nacer el proceso | `version`, `audio` |
-| `modelo` | tras cada orden que muta el proyecto | la foto completa: `proyecto`, `bpm`, `metronomo`, `bucle`, `pistas[]` (con `clips[]` y `plugins[]` con sus `parametros[]` descriptores), `master` |
-| `medidores` | ~15 Hz mientras reproduce (y una última al parar) | `segundos`, `reproduciendo`, `izq`, `der` (dBFS), `pistas[]` (VU por pista) y `lufs {m, s, i, pico}` si hay Medidor en el máster |
+| `modelo` | tras cada orden que muta el proyecto | la foto completa: `proyecto`, `bpm`, `metronomo`, `bucle`, `pistas[]` (con `clips[]` —posición, fundidos, `autoTempo`, `transposicion`, `bpmFuente`—, `plugins[]` con sus `parametros[]` descriptores, `envios[]`, `retorno`, `congelada` y `automatizacionVolumen[]`), `master` |
+| `medidores` | ~15 Hz mientras reproduce (y una última al parar) | `segundos`, `reproduciendo`, `izq`, `der` (dBFS), `pistas[]` (VU por pista) y, si hay Medidor en el máster, `lufs {m, s, i, lra, correlacion, pico, picoVerdadero}` y `espectro[24]` |
 | `render.terminado` | al acabar una exportación | `ruta`, `ok` |
 | `prueba` | solo con `--prueba` | los veredictos de la autoprueba |
 
@@ -74,11 +75,10 @@ entre menú y manejadores.
 
 ## Lo que viene después (diseñado, no construido)
 
-- **F1**: `edit.*` de edición real (mover/recortar/dividir clips, pistas,
-  mezclador), `proyecto.guardar/abrir`, `render.exportar`, ondas por
-  pirámide de picos (`clip.picos`).
-- **F2+**: `plugin.*` (insertar, parámetros, presets) para la suite propia;
-  automatización.
+- **F4**: `grabacion.*` (armar pistas, monitorización, punch, tomas) y
+  `midi.*` (notas del piano roll, cuantización, instrumentos).
+- **F5**: `vst.*` (escaneo en proceso hijo, editores, estado) y `sesion.*`
+  (escenas y disparo de clips).
 - **Cuando el volumen lo pida**: canal binario aparte (memoria compartida o
   socket local) para medidores por pista, espectros y picos de onda; el canal
   de texto queda para órdenes. El diseño de mensajes no cambia: cambia el

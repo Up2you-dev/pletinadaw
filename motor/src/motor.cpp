@@ -8,7 +8,12 @@
 #include "motor.h"
 #include "efectos.h"
 #include "efectos2.h"
+#include "efectos3.h"
 #include "protocolo.h"
+
+// TempoDetect no viaja en el header público del módulo: se incluye a pelo.
+// Envuelve el BPMDetect de SoundTouch, que ya va compilado dentro del motor.
+#include <tracktion_engine/timestretch/tracktion_TempoDetect.h>
 
 #include <cmath>
 
@@ -41,7 +46,15 @@ namespace
                                   DitherPlugin::xmlTypeName, OsciladorPlugin::xmlTypeName,
                                   SalaPlugin::xmlTypeName, PegamentoPlugin::xmlTypeName,
                                   DeeserPlugin::xmlTypeName, EQDinamicoPlugin::xmlTypeName,
-                                  BalancinPlugin::xmlTypeName, ConvolucionPlugin::xmlTypeName };
+                                  BalancinPlugin::xmlTypeName, ConvolucionPlugin::xmlTypeName,
+                                  ValvulasPlugin::xmlTypeName, ConsolaPlugin::xmlTypeName,
+                                  RemachePlugin::xmlTypeName, OptoPlugin::xmlTypeName,
+                                  LamparaPlugin::xmlTypeName, EcoPlugin::xmlTypeName,
+                                  MuellePlugin::xmlTypeName, EspejismoPlugin::xmlTypeName,
+                                  MultitapPlugin::xmlTypeName, CoroPlugin::xmlTypeName,
+                                  TremoloPlugin::xmlTypeName, TriodoPlugin::xmlTypeName,
+                                  SumadoraPlugin::xmlTypeName, MachacadoraPlugin::xmlTypeName,
+                                  PeinePlugin::xmlTypeName };
 }
 
 Motor::Motor (Opciones o, std::function<void (const juce::String&)> e)
@@ -342,6 +355,9 @@ juce::var Motor::listarPistas()
                 pon (d, "duracionFuente", onda->getAudioFile().getLength());
                 pon (d, "entradaFundido", onda->getFadeIn().inSeconds());
                 pon (d, "salidaFundido", onda->getFadeOut().inSeconds());
+                pon (d, "autoTempo", onda->getAutoTempo());
+                pon (d, "transposicion", onda->getPitchChange());
+                pon (d, "bpmFuente", onda->getLoopInfo().getBpm (onda->getAudioFile().getInfo()));
             }
 
             clips.add (d);
@@ -528,12 +544,89 @@ juce::var Motor::importarClip (int indicePista, const juce::String& ruta, double
     if (nuevo == nullptr)
         throw std::runtime_error ("no se pudo crear el clip");
 
+    // Detección de tempo orientativa (SoundTouch), sobre el primer minuto como
+    // mucho. Si no sale un BPM sensato no se apunta nada: mejor callar que mentir.
+    const double bpmFuente = detectarBpm (destino);
+    if (bpmFuente > 0.0)
+        nuevo->getLoopInfo().setBpm (bpmFuente, audio.getInfo());
+
     emitirModelo();
 
     auto r = objeto();
     pon (r, "id", nuevo->itemID.toString());
     pon (r, "duracion", audio.getLength());
+    pon (r, "bpmFuente", bpmFuente);
     return r;
+}
+
+double Motor::detectarBpm (const juce::File& archivo)
+{
+    std::unique_ptr<juce::AudioFormatReader> lector (formatos().createReaderFor (archivo));
+    if (lector == nullptr || lector->sampleRate <= 0 || lector->numChannels < 1)
+        return 0.0;
+
+    const int canales = juce::jmin (2, (int) lector->numChannels);
+    te::TempoDetect detector (canales, lector->sampleRate);
+
+    const juce::int64 tope = juce::jmin (lector->lengthInSamples, (juce::int64) (60.0 * lector->sampleRate));
+    const int bloque = 65536;
+    juce::AudioBuffer<float> buffer (canales, bloque);
+
+    for (juce::int64 hecho = 0; hecho < tope;)
+    {
+        const int ahora = (int) juce::jmin ((juce::int64) bloque, tope - hecho);
+        lector->read (&buffer, 0, ahora, hecho, true, canales > 1);
+        detector.processSection (buffer, ahora);
+        hecho += ahora;
+    }
+
+    detector.finishAndDetect();
+    return detector.isBpmSensible() ? (double) detector.getBpm() : 0.0;
+}
+
+juce::var Motor::warpClip (const juce::String& id, const juce::var& params)
+{
+    auto* objetivo = dynamic_cast<te::WaveAudioClip*> (clip (id));
+    if (objetivo == nullptr)
+        throw std::runtime_error ("no existe el clip de audio");
+
+    edit->getUndoManager().beginNewTransaction ("warp");
+
+    if (params.hasProperty ("bpmFuente"))
+    {
+        const double bpm = params["bpmFuente"];
+        if (bpm < 20.0 || bpm > 999.0)
+            throw std::runtime_error ("bpmFuente fuera de rango");
+        objetivo->getLoopInfo().setBpm (bpm, objetivo->getAudioFile().getInfo());
+    }
+
+    if (params.hasProperty ("modo"))
+        objetivo->setTimeStretchMode (juce::String (params["modo"]) == "normal"
+                                          ? te::TimeStretcher::soundtouchNormal
+                                          : te::TimeStretcher::soundtouchBetter);
+
+    if (params.hasProperty ("transposicion"))
+    {
+        if (objetivo->getTimeStretchMode() == te::TimeStretcher::disabled)
+            objetivo->setTimeStretchMode (te::TimeStretcher::soundtouchBetter);
+        objetivo->setPitchChange ((float) (double) params["transposicion"]);
+    }
+
+    if (params.hasProperty ("autoTempo"))
+    {
+        const bool activo = params["autoTempo"];
+        if (activo)
+        {
+            if (objetivo->getLoopInfo().getBpm (objetivo->getAudioFile().getInfo()) <= 0.0)
+                throw std::runtime_error ("el clip no tiene tempo de origen: manda bpmFuente");
+            if (objetivo->getTimeStretchMode() == te::TimeStretcher::disabled)
+                objetivo->setTimeStretchMode (te::TimeStretcher::soundtouchBetter);
+        }
+        objetivo->setAutoTempo (activo);
+    }
+
+    emitirModelo();
+    return juce::var (true);
 }
 
 juce::var Motor::moverClip (const juce::String& id, double inicio, int indicePista)
@@ -1574,6 +1667,26 @@ int Motor::autoprueba()
     const int clipsTrasDeshacer = (int) trasDeshacer["pistas"][0]["clips"].size()
                                 + (int) trasDeshacer["pistas"][1]["clips"].size();
 
+    // Warp: el seno no tiene ritmo que detectar, así que el tempo de origen
+    // se declara a mano (120), se enciende el autoTempo con transposición, y
+    // el proyecto sube a 150: el clip debe encoger en la proporción 120/150.
+    {
+        auto peticionWarp = objeto();
+        pon (peticionWarp, "bpmFuente", 120.0);
+        pon (peticionWarp, "autoTempo", true);
+        pon (peticionWarp, "transposicion", 5.0);
+        warpClip (idClip, peticionWarp);
+    }
+    tempo (150.0);
+    pausa (100);
+    double duracionWarp = -1.0;
+    {
+        const auto trasWarp = listarPistas();
+        for (const auto& c : *trasWarp["pistas"][0]["clips"].getArray())
+            if ((bool) c["autoTempo"])
+                duracionWarp = c["duracion"];
+    }
+
     // La suite en el máster: mezcla y mastering al completo hasta la fecha.
     insertarPlugin (-1, "eqocho", 0);
     insertarPlugin (-1, "compresor", 1);
@@ -1583,6 +1696,10 @@ int Motor::autoprueba()
     insertarPlugin (-1, "techo", 5);
     insertarPlugin (-1, "medidor", 6);
     parametroPlugin (-1, 5, "techo", -3.0);
+
+    // Y dos clásicos en la primera pista, que suenan durante la reproducción.
+    insertarPlugin (0, "valvulas", 0);
+    insertarPlugin (0, "eco", 1);
     pausa (200);
 
     // Reproducir con la bomba. El audio recién copiado necesita que el motor
@@ -1643,16 +1760,31 @@ int Motor::autoprueba()
     const int clipsReabiertos = (int) reabierto["pistas"][0]["clips"].size()
                               + (int) reabierto["pistas"][1]["clips"].size();
     const int pluginsMaster = (int) reabierto["master"]["plugins"].size();
+    const int pluginsPista = (int) reabierto["pistas"][0]["plugins"].size();
+
+    // El clip warpeado tiene que volver con su autoTempo, su transposición y
+    // su tempo de origen intactos.
+    double transposicionVuelta = 0.0, bpmVuelta = 0.0;
+    for (const auto& c : *reabierto["pistas"][0]["clips"].getArray())
+        if ((bool) c["autoTempo"])
+        {
+            transposicionVuelta = c["transposicion"];
+            bpmVuelta = c["bpmFuente"];
+        }
 
     const bool avanza = segundos > 0.25;
     const bool suena = pico > 0.05f;
     const bool deshace = clipsTrasDeshacer == 3;
     const bool renderiza = picoRender > 0.05f;
-    const bool persiste = clipsReabiertos == 3 && pluginsMaster == 7;
+    // La cadena de la pista 0 trae Válvulas, Eco y el AuxSend del envío A.
+    const bool persiste = clipsReabiertos == 3 && pluginsMaster == 7 && pluginsPista == 3;
     const int puntosCurva = (int) reabierto["pistas"][0]["automatizacionVolumen"].size();
     const bool automatiza = puntosCurva == 2;
     const bool normaliza = std::abs (lufsMedida - (-16.0)) < 1.5;
-    const bool ok = avanza && suena && deshace && renderiza && persiste && automatiza && normaliza;
+    const bool warpea = std::abs (duracionWarp - 0.4) < 0.02
+                     && std::abs (transposicionVuelta - 5.0) < 0.01
+                     && std::abs (bpmVuelta - 120.0) < 0.5;
+    const bool ok = avanza && suena && deshace && renderiza && persiste && automatiza && normaliza && warpea;
 
     auto r = objeto();
     pon (r, "ok", ok);
@@ -1662,8 +1794,12 @@ int Motor::autoprueba()
     pon (r, "picoRender", picoRender);
     pon (r, "clipsReabiertos", clipsReabiertos);
     pon (r, "pluginsMaster", pluginsMaster);
+    pon (r, "pluginsPista", pluginsPista);
     pon (r, "puntosCurva", puntosCurva);
     pon (r, "lufsNormalizada", lufsMedida);
+    pon (r, "duracionWarp", duracionWarp);
+    pon (r, "transposicionVuelta", transposicionVuelta);
+    pon (r, "bpmFuenteVuelta", bpmVuelta);
     emitir (protocolo::evento ("prueba", r));
 
     return ok ? 0 : 1;

@@ -235,6 +235,21 @@ svg{display:block; fill:none; stroke:currentColor; stroke-width:1.7; stroke-line
 .mando{display:flex; align-items:center; gap:5px; font-size:10px; color:var(--muted); white-space:nowrap}
 .mando span{width:64px; overflow:hidden; text-overflow:ellipsis}
 .mando input{width:70px; height:12px; accent-color:var(--accent)}
+
+/* el inspector del clip seleccionado: warp, tempo de origen y transposición */
+.inspector-clip{border-color:var(--accent-soft); background:var(--panel)}
+.inspector-clip .mandos-clip{display:grid; grid-auto-flow:row; grid-template-rows:none; gap:3px}
+.inspector-clip .campo{display:flex; align-items:center; gap:5px; font-size:10px; color:var(--muted); white-space:nowrap}
+.inspector-clip .campo span{width:74px; overflow:hidden; text-overflow:ellipsis}
+.inspector-clip .campo input{
+  width:56px; font:inherit; color:var(--text); background:var(--panel-2);
+  border:1px solid var(--line); border-radius:5px; padding:1px 4px;
+}
+.inspector-clip .warp{
+  justify-self:start; font-size:10px; font-weight:700; padding:2px 8px; cursor:pointer;
+  border-radius:5px; border:1px solid var(--line); background:var(--panel-2); color:var(--muted);
+}
+.inspector-clip .warp.encendido{background:var(--signal-soft); color:var(--signal); border-color:var(--signal)}
 .tira .insertar{position:relative; flex:none}
 .tira .mas{
   width:44px; height:96px; border-radius:var(--r); border:1px dashed var(--line);

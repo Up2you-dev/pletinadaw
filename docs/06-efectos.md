@@ -36,6 +36,14 @@ Todo efecto de la suite, antes de darse por hecho, cumple:
 
 ## Catálogo
 
+Estado a agosto de 2026: **todo lo marcado F1, F2 o F3 está construido y se
+inserta desde la tira**; la columna Fase dice cuándo llegó cada uno. Los
+matices que faltan de cada pieza (las 8 bandas y el M/S del EQ Ocho, los
+estilos de release del Techo, los taps dibujables del Multitap…) y el estado
+del listón de calidad están dichos, sin maquillaje, en el
+[roadmap](08-roadmap.md): los renders dorados y la validación EBU con
+vectores oficiales siguen pendientes de F6.
+
 ### Ecualizadores
 
 | Nombre | Referencia / carácter | Fase |

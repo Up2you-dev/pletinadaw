@@ -38,6 +38,7 @@ namespace protocolo
         "clip.fundidos",
         "clip.borrar",
         "clip.picos",
+        "clip.warp",
         "plugin.insertar",
         "plugin.quitar",
         "plugin.parametro",

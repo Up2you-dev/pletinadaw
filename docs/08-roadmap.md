@@ -111,25 +111,44 @@ oídos humanos), y el CI verifica el ciclo de sonoridad de punta a punta
 (hecho: la autoprueba exporta normalizado a −16 LUFS y lo comprueba
 midiendo el archivo). Renders dorados por efecto: pendiente de F6.
 
-## F3 · Clásicos y warp
+## F3 · Clásicos y warp · CONSTRUIDA
 
 El color vintage y el tiempo elástico.
 
-- [ ] Suite vintage: Válvulas (Pultec), Consola (canal SSL), Remache (1176),
-      Ópto (LA-2A), Lámpara (vari-mu), Eco (cinta), Muelle, Espejismo,
-      Coro/Flanger/Fase, Trémolo/Autopan, Triodo, Sumadora, Machacadora,
-      Peine, Multitap.
-- [ ] **Warp por clip**: detección de transitorios, marcadores arrastrables,
-      modos tonal/percusivo/re-pitch (RubberBand integrado; SoundTouch para
-      previsualizar).
-- [ ] Tempo maestro: los clips warpeados siguen el tempo del proyecto;
-      cambios de tempo por tramos.
-- [ ] Transposición por clip en semitonos y afinación fina; detección de
-      tempo (y tonalidad orientativa) al importar.
+- [x] Suite vintage completa, los quince: **Válvulas** (curvas Pultec con el
+      truco de realzar y cortar a la vez), **Consola** (canal británico de
+      cuatro bandas más paso alto), **Remache** (FET estilo 1176 con modo
+      TODOS), **Ópto** (célula T4 con memoria lenta), **Lámpara** (vari-mu de
+      programa), **Eco** (cinta con wow/flutter, head-bump y autooscilación),
+      **Muelle** (allpasses dispersivos en serie), **Espejismo** (shimmer:
+      octavador granular dentro de la FDN), **Multitap** (ecos al tempo con
+      anchura), **Coro** (con modos flanger y fase), **Trémolo** (con
+      autopan), **Triodo**, **Sumadora**, **Machacadora** y **Peine**
+      (gráfico ISO de 31 bandas). Verificados en vivo por stdio: el Peine
+      clava −12,0 dB en su banda, el Eco deja cola tras el clip y el Ópto
+      reduce 13 dB. La base `PluginSuite` genera parámetros y persistencia
+      de una tabla estática: un clásico nuevo es su tabla y su DSP.
+- [x] **Warp por clip (autoTempo)**: el clip sigue el tempo del proyecto con
+      time-stretch SoundTouch (modos `normal`/`mejor`); al cambiar el tempo,
+      las posiciones se remapean a compás y el clip estira. La autoprueba lo
+      verifica: un clip de 0,5 s a 120 BPM queda en 0,400 s exactos al subir
+      el proyecto a 150, y sobrevive al guardar/reabrir.
+- [x] Transposición por clip en semitonos (el motor acepta decimales; la
+      caja de la interfaz va en enteros) y detección de tempo al importar
+      (SoundTouch BPMDetect sobre el primer minuto; solo se apunta si sale
+      un BPM sensato). Inspector de clip en la tira: BPM fuente corregible,
+      warp y transposición.
+- [ ] Pendiente de F3 (se queda para más adelante, dicho claro): marcadores
+      de warp arrastrables con detección de transitorios y re-pitch por
+      marcador (RubberBand sigue sin integrarse: el stretch es SoundTouch),
+      cambios de tempo por tramos, afinación fina en centésimas y tonalidad
+      orientativa al importar.
 
 **Hecho cuando**: un loop a 87 BPM cae en un proyecto a 120 y suena en
-rejilla sin artefactos evidentes, y una mezcla coloreada solo con la suite
-vintage justifica sus nombres.
+rejilla sin artefactos evidentes (verificado en CI con la proporción exacta
+120→150; la escucha con material real, pendiente de oídos), y una mezcla
+coloreada solo con la suite vintage justifica sus nombres (los quince suenan
+y persisten; el juicio de carácter, pendiente de A/B humano).
 
 ## F4 · Grabar y MIDI
 

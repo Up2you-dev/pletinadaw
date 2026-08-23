@@ -77,6 +77,8 @@ public:
     juce::var fundidosClip (const juce::String& id, double entrada, double salida);
     juce::var borrarClip (const juce::String& id);
     juce::var picosClip (const juce::String& id, int porSegundo);
+    juce::var warpClip (const juce::String& id, const juce::var& params);
+    double detectarBpm (const juce::File& archivo);
 
     // Cadenas de la suite (pista -1 = máster).
     juce::var insertarPlugin (int pista, const juce::String& tipo, int indice);
