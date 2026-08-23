@@ -1,0 +1,76 @@
+# CI de Pletina DAW: la interfaz se prueba y arranca de verdad; el motor
+# compila en Linux y Windows y pasa su autoprueba sin tarjeta de sonido.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  ui:
+    name: interfaz · lint, pruebas y humo
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ui
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npm run lint
+      - run: npm test
+      - name: humo con xvfb
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb
+          PLETINA_CAPTURA="$RUNNER_TEMP/captura.png" npm run smoke
+      - uses: actions/upload-artifact@v4
+        with:
+          name: captura-humo
+          path: ${{ runner.temp }}/captura.png
+          if-no-files-found: error
+
+  motor-linux:
+    name: motor · Linux
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: dependencias de JUCE en Linux
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ninja-build libasound2-dev libx11-dev libxext-dev \
+            libxrandr-dev libxinerama-dev libxcursor-dev libfreetype-dev libfontconfig1-dev
+      - name: caché de dependencias descargadas (JUCE y Tracktion)
+        uses: actions/cache@v4
+        with:
+          path: motor/build/_deps
+          key: deps-linux-${{ hashFiles('motor/CMakeLists.txt') }}
+      - run: cmake -B motor/build -S motor -G Ninja -DCMAKE_BUILD_TYPE=Release
+      - run: cmake --build motor/build
+      - name: autoprueba sin tarjeta de sonido
+        run: ./motor/build/pletina-motor_artefacts/Release/pletina-motor --prueba
+
+  motor-windows:
+    name: motor · Windows
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: caché de dependencias descargadas (JUCE y Tracktion)
+        uses: actions/cache@v4
+        with:
+          path: motor/build/_deps
+          key: deps-windows-${{ hashFiles('motor/CMakeLists.txt') }}
+      - run: cmake -B motor/build -S motor
+      - run: cmake --build motor/build --config Release
+      - name: autoprueba sin tarjeta de sonido
+        run: motor/build/pletina-motor_artefacts/Release/pletina-motor.exe --prueba
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pletina-motor-windows
+          path: motor/build/pletina-motor_artefacts/Release/pletina-motor.exe
+          if-no-files-found: error
