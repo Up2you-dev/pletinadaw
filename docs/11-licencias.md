@@ -2,9 +2,13 @@
 
 ## La decisión
 
-**Pletina DAW es GPLv3** (el `LICENSE` de la raíz). Es la consecuencia
-directa de construir sobre la vía gratuita de las piezas elegidas, y encaja
-con la casa: software local, inspeccionable, sin sorpresas.
+**Pletina DAW es GPLv3** (el `LICENSE` de la raíz), y es una decisión
+**firme**: el propietario decidió (agosto de 2026) que el proyecto es
+público y sin ánimo de venta. No es solo la consecuencia de construir sobre
+la vía gratuita de las piezas elegidas: es lo que el proyecto quiere ser —
+software local, inspeccionable, sin sorpresas. De propina, en un repositorio
+público GitHub Actions no cuesta minutos: el CI (incluidos los builds de
+Windows del motor, los caros) sale gratis.
 
 ## Qué obliga cada pieza
 
@@ -34,22 +38,17 @@ exigirá revisar el acuerdo vigente de Steinberg en ese momento.
 - Las obras de los usuarios (su música, sus proyectos) no quedan afectadas en
   absoluto: la GPL cubre el programa, no lo que el programa produce.
 
-## La puerta comercial (reversible, decisión del propietario)
+## La puerta comercial, cerrada
 
-Si algún día Up2you quisiera distribuir Pletina DAW con código cerrado:
+Existió como alternativa sobre el papel (licencias comerciales de JUCE,
+Tracktion Engine y RubberBand para poder cerrar el código) y queda anotada
+aquí solo como historia: con el proyecto declarado público y sin ánimo de
+venta, no aplica. En consecuencia:
 
-1. **JUCE**: licencia comercial por asiento (Indie/Pro según facturación).
-2. **Tracktion Engine**: licencia comercial con Tracktion Corporation.
-3. **RubberBand**: licencia comercial de Particular Programs, o sustituirlo
-   (Signalsmith Stretch, MIT, es el candidato técnico).
-4. **VST3**: firmar el acuerdo de Steinberg en lugar de la vía GPL.
-
-Matiz útil de la arquitectura: la **interfaz** habla con el motor por stdio,
-a distancia de proceso y con un protocolo documentado — la posición
-defendible estándar es que son programas separados, así que la UI podría
-relicenciarse sin tocar las licencias del motor. La obligación fuerte de la
-GPL vive en el binario `pletina-motor`. (Esto es ingeniería informada, no
-asesoría jurídica: antes de un movimiento comercial, abogado.)
+- **VST3** se aloja por la vía GPL del SDK, sin firmar el acuerdo
+  propietario de Steinberg.
+- **RubberBand** entra en F3 sin plan B: su GPL es la nuestra.
+- No hay que vigilar umbrales de facturación ni asientos de JUCE.
 
 ## Obligaciones operativas ya asumidas
 

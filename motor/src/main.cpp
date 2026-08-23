@@ -1,4 +1,6 @@
 /*  Pletina DAW · motor
+    Copyright (C) 2026 Up2you — GPLv3: ver el LICENSE de la raíz.
+
     Arranque del proceso. El hilo principal es el hilo de mensajes de JUCE y el
     dueño del motor; un hilo aparte lee stdin línea a línea y le pasa cada orden.
     stdout es SOLO del protocolo (NDJSON); todo diagnóstico va por stderr, porque

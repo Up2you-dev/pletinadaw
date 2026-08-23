@@ -1,4 +1,6 @@
 /*  Pletina DAW · motor
+    Copyright (C) 2026 Up2you — GPLv3: ver el LICENSE de la raíz.
+
     Traducción entre líneas NDJSON y órdenes del Motor. El formato está descrito
     en protocolo.h y en docs/04-protocolo.md.
 */

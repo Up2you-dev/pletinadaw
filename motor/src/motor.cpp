@@ -1,4 +1,6 @@
 /*  Pletina DAW · motor
+    Copyright (C) 2026 Up2you — GPLv3: ver el LICENSE de la raíz.
+
     Implementación del envoltorio del motor. Los "porqués" de cada modo de audio
     están en motor.h; aquí solo hay mecánica.
 */

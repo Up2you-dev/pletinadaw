@@ -44,18 +44,19 @@ mitigado fijando versiones y tocando su API solo desde `motor/src`.
 
 ---
 
-## ADR-003 · GPLv3 para todo el repositorio
+## ADR-003 · GPLv3 para todo el repositorio — decisión firme
 
-**Decisión.** Pletina DAW se publica bajo GPLv3.
+**Decisión.** Pletina DAW se publica bajo GPLv3. En agosto de 2026 el
+propietario la cerró: el proyecto es **público y sin ánimo de venta**, así
+que la vía comercial (licencias de pago de JUCE, Tracktion Engine y
+RubberBand para cerrar el código) queda descartada y anotada solo como
+historia en [licencias](11-licencias.md).
 
 **Por qué.** Es la vía gratuita de JUCE (AGPL), Tracktion Engine (GPL) y
-RubberBand (GPL). Código abierto además encaja con un DAW que promete "sin
-sorpresas".
-
-**Alternativa conocida (reversible por el propietario).** Licencias
-comerciales de JUCE, Tracktion Engine y RubberBand permitirían cerrar el
-código; la UI, al hablar con el motor a distancia de proceso, podría
-relicenciarse aparte. Detalles y matices en [licencias](11-licencias.md).
+RubberBand (GPL), y lo que el proyecto quiere ser: código abierto encaja con
+un DAW que promete "sin sorpresas". Ventajas prácticas inmediatas: VST3 por
+la vía GPL sin acuerdo Steinberg, RubberBand sin plan B, y CI gratuito al
+ser público el repositorio.
 
 ---
 

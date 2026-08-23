@@ -1,4 +1,6 @@
 /*  Pletina DAW · motor
+    Copyright (C) 2026 Up2you — GPLv3: ver el LICENSE de la raíz.
+
     Protocolo UI⇄motor: JSON-RPC propio en NDJSON por stdio.
     Una línea = un mensaje. Peticiones {id, metodo, params}, respuestas {id, resultado}
     o {id, error:{codigo, mensaje}}, y eventos sin id {evento, datos}.

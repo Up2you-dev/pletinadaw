@@ -91,6 +91,7 @@ diga la variable de entorno `PLETINA_MOTOR`.
 
 ## Licencia
 
-GPLv3 — lo exigen JUCE y Tracktion Engine en su vía gratuita, y lo asumimos
-con las implicaciones y alternativas contadas en
+GPLv3, y con convicción: Pletina DAW es un proyecto **público y sin ánimo
+de venta**. Lo exigen JUCE y Tracktion Engine en su vía gratuita y es lo que
+este DAW quiere ser; implicaciones y detalles en
 [`docs/11-licencias.md`](docs/11-licencias.md).

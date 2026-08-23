@@ -1,4 +1,6 @@
 /*  Pletina DAW · motor
+    Copyright (C) 2026 Up2you — GPLv3: ver el LICENSE de la raíz.
+
     Envoltorio de Tracktion Engine: un Edit, su transporte y los medidores,
     con dos modos de audio. Con dispositivo real, JUCE abre lo que haya
     (WASAPI/ASIO en Windows, ALSA en Linux). Con --sin-audio se usa la interfaz
