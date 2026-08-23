@@ -1,5 +1,7 @@
 # Pletina DAW
 
+[![CI](https://github.com/Up2you-dev/pletinadaw/actions/workflows/ci.yml/badge.svg)](https://github.com/Up2you-dev/pletinadaw/actions/workflows/ci.yml)
+
 Estación de trabajo de audio digital para Windows, de la familia
 [Pletina](https://github.com/Up2you-dev/pletina). Multipista, clips, mezcla,
 grabación, MIDI, warping, y una suite propia de efectos con la cadena de
