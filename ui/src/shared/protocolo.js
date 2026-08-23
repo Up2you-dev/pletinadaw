@@ -11,6 +11,7 @@
 export const METODOS = [
   'hola',
   'dispositivos.listar',
+  'dispositivos.tono',
   'proyecto.nuevo',
   'proyecto.abrir',
   'proyecto.guardar',
@@ -21,6 +22,7 @@ export const METODOS = [
   'pista.mezcla',
   'pista.envio',
   'pista.congelar',
+  'pista.armar',
   'clip.importar',
   'clip.mover',
   'clip.recortar',
@@ -39,6 +41,7 @@ export const METODOS = [
   'plugin.preset.cargar',
   'automatizacion.puntos',
   'transporte.tocar',
+  'transporte.grabar',
   'transporte.parar',
   'transporte.irA',
   'transporte.estado',

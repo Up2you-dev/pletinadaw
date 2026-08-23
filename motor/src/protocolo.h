@@ -20,6 +20,7 @@ namespace protocolo
     inline constexpr const char* METODOS[] = {
         "hola",
         "dispositivos.listar",
+        "dispositivos.tono",
         "proyecto.nuevo",
         "proyecto.abrir",
         "proyecto.guardar",
@@ -30,6 +31,7 @@ namespace protocolo
         "pista.mezcla",
         "pista.envio",
         "pista.congelar",
+        "pista.armar",
         "clip.importar",
         "clip.mover",
         "clip.recortar",
@@ -48,6 +50,7 @@ namespace protocolo
         "plugin.preset.cargar",
         "automatizacion.puntos",
         "transporte.tocar",
+        "transporte.grabar",
         "transporte.parar",
         "transporte.irA",
         "transporte.estado",

@@ -97,6 +97,10 @@ namespace protocolo
             if (metodo == "clip.picos")           return respuesta (id, motor.picosClip (params["id"].toString(), params.hasProperty ("porSegundo") ? (int) params["porSegundo"] : 50));
             if (metodo == "clip.warp")            return respuesta (id, motor.warpClip (params["id"].toString(), params));
 
+            if (metodo == "dispositivos.tono")    return respuesta (id, motor.tonoDePrueba ((double) params["frecuencia"]));
+            if (metodo == "pista.armar")          return respuesta (id, motor.armarPista ((int) params["pista"], (bool) params["activo"], params.hasProperty ("entrada") ? (int) params["entrada"] : 0));
+            if (metodo == "transporte.grabar")    return respuesta (id, motor.grabar (params));
+
             if (metodo == "plugin.insertar")      return respuesta (id, motor.insertarPlugin (params.hasProperty ("pista") ? (int) params["pista"] : -1, params["tipo"].toString(), params.hasProperty ("indice") ? (int) params["indice"] : -1));
             if (metodo == "plugin.quitar")        return respuesta (id, motor.quitarPlugin (params.hasProperty ("pista") ? (int) params["pista"] : -1, (int) params["indice"]));
             if (metodo == "plugin.parametro")     return respuesta (id, motor.parametroPlugin (params.hasProperty ("pista") ? (int) params["pista"] : -1, (int) params["indice"], params["parametro"].toString(), (double) params["valor"]));

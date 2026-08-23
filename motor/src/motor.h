@@ -53,6 +53,7 @@ public:
     // Órdenes del protocolo. Todas se llaman desde el hilo de mensajes.
     juce::var hola() const;
     juce::var listarDispositivos();
+    juce::var tonoDePrueba (double frecuencia);   // solo --sin-audio
 
     // Proyecto: una carpeta con proyecto.tracktionedit y media/.
     juce::var nuevoProyecto (const juce::String& carpeta);
@@ -67,6 +68,7 @@ public:
     juce::var mezclaPista (int indice, const juce::var& params);
     juce::var envioPista (int indice, int bus, double nivelDb);
     juce::var congelarPista (int indice, bool activo);
+    juce::var armarPista (int indice, bool activo, int entrada);
 
     // Clips.
     juce::var importarClip (int pista, const juce::String& ruta, double inicio);
@@ -95,6 +97,7 @@ public:
 
     // Transporte y compañía.
     juce::var tocar();
+    juce::var grabar (const juce::var& params);
     juce::var parar();
     juce::var irA (double segundos);
     juce::var estadoTransporte() const;
@@ -146,6 +149,10 @@ private:
     std::thread bomba;
     std::atomic<bool> bombaViva { false };
     std::atomic<float> picoIzq { 0.0f }, picoDer { 0.0f };
+
+    // Señal de prueba en la ENTRADA de la bomba (Hz; 0 = silencio): con ella
+    // la autoprueba y el CI graban de verdad sin micrófono. dispositivos.tono.
+    std::atomic<float> tonoEntrada { 0.0f };
 
     bool reproduciendoAntes = false;
     int tics = 0; // del temporizador de 15 Hz: cada ~2 min toca autoguardado
