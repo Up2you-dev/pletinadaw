@@ -110,6 +110,8 @@ private:
     double frecuencia = 48000.0;
     int mirada = 96;                         // muestras de lookahead
     juce::AudioBuffer<float> retardo;        // línea de retardo circular
+    std::vector<float> ventanaTP;            // pico verdadero de cada muestra en la ventana
+    class PicoVerdadero* tp = nullptr;       // interpolador ×4 (efectos2)
     int posRetardo = 0;
     float atenuacion = 1.0f;                 // ganancia aplicada (estado del release)
 };
@@ -270,7 +272,13 @@ public:
     void applyToBuffer (const te::PluginRenderContext&) override;
     void restorePluginStateFromValueTree (const juce::ValueTree&) override {}
 
-    struct Lectura { float picoDb, lufsM, lufsS, lufsI; };
+    static constexpr int BANDAS_ESPECTRO = 24;
+
+    struct Lectura
+    {
+        float picoDb, picoVerdaderoDb, lufsM, lufsS, lufsI, lra, correlacion;
+        float espectro[BANDAS_ESPECTRO];
+    };
     Lectura leer();       // hilo de mensajes
     void reiniciar();     // borra la integrada (al arrancar reproducción)
 
@@ -279,9 +287,11 @@ private:
 
     double frecuencia = 48000.0;
     juce::dsp::IIR::Filter<float> preK1[2], preK2[2]; // prefiltro K por canal
+    class PicoVerdadero* tp = nullptr;                // interpolador ×4 (efectos2)
 
     juce::SpinLock candado;
     float picoLineal = 0.0f;
+    float picoVerdaderoLineal = 0.0f;
     // Energía media (z_i) por bloques de 100 ms; momentánea = 4, corta = 30.
     std::vector<double> bloques100;      // anillo corto para M y S
     size_t posBloque = 0;
@@ -289,4 +299,12 @@ private:
     int muestrasAcumuladas = 0;
     // Integrada: bloques de 400 ms (solapados al 75 %) que pasan la puerta absoluta.
     std::vector<double> bloquesIntegrada;
+    // Correlación por bloque de 100 ms.
+    double sumaLR = 0.0, sumaL2 = 0.0, sumaR2 = 0.0;
+    float correlacionActual = 1.0f;
+    // Rango de sonoridad: la serie de sonoridad corta, una por segundo.
+    std::vector<double> historiaCorta;
+    // Espectro: anillo mono para la FFT que se calcula al leer.
+    std::vector<float> anilloFFT;
+    size_t posFFT = 0;
 };

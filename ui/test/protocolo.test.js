@@ -69,6 +69,6 @@ describe('la tabla de métodos', () => {
   });
 
   it('usa nombres con forma de orden: zona.accion o palabra suelta', () => {
-    for (const metodo of METODOS) expect(metodo).toMatch(/^[a-z]+(\.[a-zA-Z]+)?$/);
+    for (const metodo of METODOS) expect(metodo).toMatch(/^[a-z]+(\.[a-zA-Z]+){0,2}$/);
   });
 });

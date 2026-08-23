@@ -177,6 +177,13 @@ svg{display:block; fill:none; stroke:currentColor; stroke-width:1.7; stroke-line
   border:1px solid var(--line); box-shadow:var(--shadow); margin-left:-9px;
 }
 .canal .pan{appearance:auto; width:100%; height:14px; accent-color:var(--muted-2)}
+.canal .envios{display:grid; gap:1px; font-size:9px; color:var(--muted-2)}
+.canal .envios label{display:flex; align-items:center; gap:3px}
+.canal .envios .envio{flex:1; min-width:0; height:10px; accent-color:var(--signal)}
+.canal .envios.ret{text-align:center; color:var(--signal); font-size:10px; letter-spacing:.08em; text-transform:uppercase}
+.canal.retorno{background:var(--signal-soft); border-color:var(--signal)}
+.canal .botones .c{font-size:11px}
+.canal .botones button[aria-pressed="true"].c{background:var(--accent-soft); color:var(--accent); border-color:var(--accent)}
 .canal.elegido{outline:2px solid var(--accent); outline-offset:-2px}
 .canal.anadir{
   display:grid; place-items:center; width:40px; border-style:dashed; background:transparent;
@@ -244,6 +251,38 @@ svg{display:block; fill:none; stroke:currentColor; stroke-width:1.7; stroke-line
   cursor:pointer; font-size:13px; color:var(--text);
 }
 .tira .menu button:hover{background:var(--accent-soft); color:var(--accent)}
+.dispositivo .presets{
+  width:18px; height:18px; border:none; background:transparent; color:var(--muted-2);
+  cursor:pointer; padding:0; flex:none; font-size:11px;
+}
+.dispositivo .presets:hover{color:var(--accent)}
+.dispositivo{position:relative}
+.dispositivo .menu{
+  position:absolute; bottom:100%; left:0; z-index:31; display:grid; gap:2px; padding:6px;
+  background:var(--panel-2); border:1px solid var(--line); border-radius:var(--r-sm);
+  box-shadow:var(--shadow); min-width:150px; margin-bottom:4px;
+}
+.dispositivo .menu button{
+  text-align:left; padding:5px 8px; border:none; background:transparent; border-radius:5px;
+  cursor:pointer; font-size:12.5px; color:var(--text);
+}
+.dispositivo .menu button:hover{background:var(--accent-soft); color:var(--accent)}
+.dispositivo .menu input{
+  background:var(--bg); border:1px solid var(--accent); border-radius:5px; padding:4px 7px;
+  font-size:12.5px; color:var(--text);
+}
+.espectro{display:block; width:100%; height:52px}
+.exportador{position:relative; display:inline-flex}
+.exportador .menu{
+  position:absolute; top:100%; left:0; z-index:40; display:grid; gap:2px; padding:6px;
+  background:var(--panel-2); border:1px solid var(--line); border-radius:var(--r-sm);
+  box-shadow:var(--shadow); min-width:160px; margin-top:4px;
+}
+.exportador .menu button{
+  text-align:left; padding:6px 9px; border:none; background:transparent; border-radius:5px;
+  cursor:pointer; font-size:13px; color:var(--text); white-space:nowrap;
+}
+.exportador .menu button:hover{background:var(--accent-soft); color:var(--accent)}
 
 /* renombrar pista: un input flotante sobre el canvas */
 .renombrar{

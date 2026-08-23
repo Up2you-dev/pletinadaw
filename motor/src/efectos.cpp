@@ -7,6 +7,7 @@
 */
 
 #include "efectos.h"
+#include "efectos2.h"
 
 namespace
 {
@@ -28,6 +29,18 @@ void registrarEfectos (te::Engine& engine)
     plugins.createBuiltInType<PlacaPlugin>();
     plugins.createBuiltInType<DelayPlugin>();
     plugins.createBuiltInType<PuertaPlugin>();
+    plugins.createBuiltInType<MultibandaPlugin>();
+    plugins.createBuiltInType<AnchuraPlugin>();
+    plugins.createBuiltInType<ChispaPlugin>();
+    plugins.createBuiltInType<OxidoPlugin>();
+    plugins.createBuiltInType<DitherPlugin>();
+    plugins.createBuiltInType<OsciladorPlugin>();
+    plugins.createBuiltInType<SalaPlugin>();
+    plugins.createBuiltInType<PegamentoPlugin>();
+    plugins.createBuiltInType<DeeserPlugin>();
+    plugins.createBuiltInType<EQDinamicoPlugin>();
+    plugins.createBuiltInType<BalancinPlugin>();
+    plugins.createBuiltInType<ConvolucionPlugin>();
 }
 
 bool esPluginDeSerie (const te::Plugin& plugin)
@@ -240,6 +253,7 @@ TechoPlugin::~TechoPlugin()
     notifyListenersOfDeletion();
     pTecho->detachFromCurrentValue();
     pRelajacion->detachFromCurrentValue();
+    delete tp;
 }
 
 void TechoPlugin::initialise (const te::PluginInitialisationInfo& info)
@@ -248,6 +262,10 @@ void TechoPlugin::initialise (const te::PluginInitialisationInfo& info)
     mirada = juce::jmax (16, (int) std::lround (frecuencia * MIRADA_MS / 1000.0));
     retardo.setSize (2, mirada, false, true, true);
     retardo.clear();
+    ventanaTP.assign ((size_t) mirada, 0.0f);
+    if (tp == nullptr)
+        tp = new PicoVerdadero();
+    tp->preparar();
     posRetardo = 0;
     atenuacion = 1.0f;
 }
@@ -271,21 +289,26 @@ void TechoPlugin::applyToBuffer (const te::PluginRenderContext& fc)
 
     for (int i = 0; i < n; ++i)
     {
-        // Entra la muestra nueva en la línea de retardo y sale la vieja.
+        // Entra la muestra nueva en la línea de retardo y sale la vieja. De la
+        // entrante se apunta su pico VERDADERO (sobremuestreado ×4): lo que el
+        // techo promete es que ni los picos entre muestras lo superan.
+        float picoEntrante = 0.0f;
         for (int c = 0; c < 2; ++c)
         {
             float* canal = datos[c] != nullptr ? datos[c] : datos[0];
             const float entrante = canal[i];
             if (datos[c] != nullptr) datos[c][i] = linea[c][posRetardo];
             linea[c][posRetardo] = entrante;
+            picoEntrante = juce::jmax (picoEntrante, tp != nullptr ? tp->medir (c, entrante) : std::abs (entrante));
         }
+        ventanaTP[(size_t) posRetardo] = picoEntrante;
         posRetardo = (posRetardo + 1) % mirada;
 
         // Lo más alto que viene por la ventana de mirada decide la atenuación:
         // el ataque es instantáneo (para eso está el retardo) y la vuelta, suave.
         float pico = 0.0f;
         for (int j = 0; j < mirada; ++j)
-            pico = juce::jmax (pico, std::abs (linea[0][j]), datos[1] != nullptr ? std::abs (linea[1][j]) : 0.0f);
+            pico = juce::jmax (pico, ventanaTP[(size_t) j]);
 
         const float necesaria = pico > limite ? limite / pico : 1.0f;
         atenuacion = necesaria < atenuacion ? necesaria
@@ -415,6 +438,7 @@ MedidorPlugin::MedidorPlugin (te::PluginCreationInfo info) : te::Plugin (info) {
 MedidorPlugin::~MedidorPlugin()
 {
     notifyListenersOfDeletion();
+    delete tp;
 }
 
 void MedidorPlugin::initialise (const te::PluginInitialisationInfo& info)
@@ -434,6 +458,10 @@ void MedidorPlugin::initialise (const te::PluginInitialisationInfo& info)
         preK2[c].reset();
     }
 
+    if (tp == nullptr)
+        tp = new PicoVerdadero();
+    tp->preparar();
+
     const juce::SpinLock::ScopedLockType bloqueo (candado);
     bloques100.assign (30, 0.0);
     posBloque = 0;
@@ -441,6 +469,12 @@ void MedidorPlugin::initialise (const te::PluginInitialisationInfo& info)
     muestrasAcumuladas = 0;
     bloquesIntegrada.clear();
     picoLineal = 0.0f;
+    picoVerdaderoLineal = 0.0f;
+    sumaLR = sumaL2 = sumaR2 = 0.0;
+    correlacionActual = 1.0f;
+    historiaCorta.clear();
+    anilloFFT.assign (1024, 0.0f);
+    posFFT = 0;
 }
 
 void MedidorPlugin::volcarBloque100ms (double energia)
@@ -480,14 +514,26 @@ void MedidorPlugin::applyToBuffer (const te::PluginRenderContext& fc)
     for (int i = 0; i < n; ++i)
     {
         double energia = 0.0;
+        float muestras[2] = { 0.0f, 0.0f };
 
         for (int c = 0; c < canales; ++c)
         {
             const float v = buffer.getSample (c, inicio + i);
+            muestras[juce::jmin (c, 1)] = v;
             picoLineal = juce::jmax (picoLineal, std::abs (v));
+            if (tp != nullptr)
+                picoVerdaderoLineal = juce::jmax (picoVerdaderoLineal, tp->medir (c, v));
             const float filtrada = preK2[c].processSample (preK1[c].processSample (v));
             energia += (double) filtrada * filtrada;
         }
+        if (canales < 2) muestras[1] = muestras[0];
+
+        sumaLR += (double) muestras[0] * muestras[1];
+        sumaL2 += (double) muestras[0] * muestras[0];
+        sumaR2 += (double) muestras[1] * muestras[1];
+
+        anilloFFT[posFFT] = 0.5f * (muestras[0] + muestras[1]);
+        posFFT = (posFFT + 1) % anilloFFT.size();
 
         energiaAcumulada += energia;
         muestrasAcumuladas += 1;
@@ -497,6 +543,20 @@ void MedidorPlugin::applyToBuffer (const te::PluginRenderContext& fc)
             volcarBloque100ms (energiaAcumulada / muestrasAcumuladas);
             energiaAcumulada = 0.0;
             muestrasAcumuladas = 0;
+
+            // Correlación del bloque; con silencio se queda en la última.
+            if (sumaL2 + sumaR2 > 1e-9)
+                correlacionActual = (float) (sumaLR / std::sqrt (juce::jmax (1e-12, sumaL2 * sumaR2)));
+            sumaLR = sumaL2 = sumaR2 = 0.0;
+
+            // Cada segundo, la sonoridad corta entra en la serie del LRA.
+            if (posBloque % 10 == 0 && posBloque >= 30 && historiaCorta.size() < 200000)
+            {
+                double suma = 0.0;
+                for (size_t j = 0; j < 30; ++j)
+                    suma += bloques100[(posBloque - 1 - j) % bloques100.size()];
+                historiaCorta.push_back (suma / 30.0);
+            }
         }
     }
 }
@@ -522,9 +582,67 @@ MedidorPlugin::Lectura MedidorPlugin::leer()
 
     Lectura r;
     r.picoDb = juce::Decibels::gainToDecibels (picoLineal, -100.0f);
+    r.picoVerdaderoDb = juce::Decibels::gainToDecibels (picoVerdaderoLineal, -100.0f);
     picoLineal = 0.0f;
+    picoVerdaderoLineal = 0.0f;
+    r.correlacion = juce::jlimit (-1.0f, 1.0f, correlacionActual);
     r.lufsM = aLufs (mediaVentana (4));
     r.lufsS = aLufs (mediaVentana (30));
+
+    // Rango de sonoridad (EBU Tech 3342): serie corta con puerta absoluta de
+    // −70 y relativa de −20, y la distancia entre los percentiles 10 y 95.
+    r.lra = 0.0f;
+    {
+        std::vector<double> vivas;
+        vivas.reserve (historiaCorta.size());
+        for (auto e : historiaCorta)
+            if (aLufs (e) > -70.0f) vivas.push_back (e);
+
+        if (vivas.size() >= 4)
+        {
+            double media = 0.0;
+            for (auto e : vivas) media += e;
+            media /= (double) vivas.size();
+            const float puerta = aLufs (media) - 20.0f;
+
+            std::vector<float> sonoridades;
+            sonoridades.reserve (vivas.size());
+            for (auto e : vivas)
+                if (aLufs (e) > puerta) sonoridades.push_back (aLufs (e));
+
+            if (sonoridades.size() >= 4)
+            {
+                std::sort (sonoridades.begin(), sonoridades.end());
+                const auto p = [&] (double q) { return sonoridades[(size_t) std::lround (q * (sonoridades.size() - 1))]; };
+                r.lra = juce::jmax (0.0f, p (0.95) - p (0.10));
+            }
+        }
+    }
+
+    // Espectro: FFT de 1024 con ventana de Hann, agrupada en bandas logarítmicas.
+    {
+        static juce::dsp::FFT fft (10);
+        float bloque[2048] = {};
+        for (size_t j = 0; j < anilloFFT.size(); ++j)
+        {
+            const float ventana = 0.5f * (1.0f - std::cos (2.0f * juce::MathConstants<float>::pi * (float) j / (float) anilloFFT.size()));
+            bloque[j] = anilloFFT[(posFFT + j) % anilloFFT.size()] * ventana;
+        }
+        fft.performFrequencyOnlyForwardTransform (bloque);
+
+        const double fMin = 40.0, fMax = juce::jmin (20000.0, frecuencia * 0.5);
+        for (int b = 0; b < BANDAS_ESPECTRO; ++b)
+        {
+            const double fa = fMin * std::pow (fMax / fMin, (double) b / BANDAS_ESPECTRO);
+            const double fb = fMin * std::pow (fMax / fMin, (double) (b + 1) / BANDAS_ESPECTRO);
+            const int binA = juce::jmax (1, (int) std::floor (fa * 1024 / frecuencia));
+            const int binB = juce::jmax (binA + 1, (int) std::ceil (fb * 1024 / frecuencia));
+            float pico = 0.0f;
+            for (int k = binA; k < binB && k < 512; ++k)
+                pico = juce::jmax (pico, bloque[k]);
+            r.espectro[b] = juce::Decibels::gainToDecibels (pico / 256.0f, -100.0f);
+        }
+    }
 
     // Integrada con la puerta relativa: media de los bloques que superan la
     // media sin puerta menos 10 LU. Con silencio, −inf honesto (−100).
@@ -551,6 +669,7 @@ void MedidorPlugin::reiniciar()
 {
     const juce::SpinLock::ScopedLockType bloqueo (candado);
     bloquesIntegrada.clear();
+    historiaCorta.clear();
     energiaAcumulada = 0.0;
     muestrasAcumuladas = 0;
     posBloque = 0;

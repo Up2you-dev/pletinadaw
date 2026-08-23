@@ -124,10 +124,14 @@ app.whenReady().then(() => {
           const otro = await motor.orden('clip.importar', { pista: 1, ruta: wav, inicio: 1 });
           await motor.orden('clip.dividir', { id: clip.id, segundos: 1 });
           await motor.orden('clip.fundidos', { id: otro.id, entrada: 0.4, salida: 0.5 });
-          await motor.orden('plugin.insertar', { pista: -1, tipo: 'medidor' });
-          await motor.orden('plugin.insertar', { pista: -1, tipo: 'techo' });
+          await motor.orden('plugin.insertar', { pista: -1, tipo: 'multibanda' });
+          await motor.orden('plugin.insertar', { pista: -1, tipo: 'anchura', indice: 1 });
+          await motor.orden('plugin.insertar', { pista: -1, tipo: 'techo', indice: 2 });
+          await motor.orden('plugin.insertar', { pista: -1, tipo: 'medidor', indice: 3 });
           await motor.orden('plugin.insertar', { pista: 1, tipo: 'placa' });
-          await motor.orden('plugin.insertar', { pista: 1, tipo: 'delay', indice: 1 });
+          await motor.orden('pista.envio', { pista: 0, bus: 0, nivelDb: -14 });
+          await motor.orden('automatizacion.puntos', { pista: 0, parametro: 'volumen',
+            puntos: [{ t: 0, v: 0 }, { t: 1.5, v: -14 }, { t: 3, v: -2 }] });
           await motor.orden('transporte.bucle', { activo: true, inicio: 0, fin: 3 });
           await motor.orden('transporte.tocar');
         } catch {

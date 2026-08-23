@@ -65,34 +65,51 @@ reabre idéntico. La autoprueba del motor (`--prueba`) ya cubre el ciclo
 entero en CI: proyecto → importar → dividir/mover/recortar → deshacer →
 suite en el máster → sonar → exportar → guardar → reabrir.
 
-## F2 · Mastering y mezcla a fondo — prioridad declarada · EN CURSO
+## F2 · Mastering y mezcla a fondo — prioridad declarada · CONSTRUIDA
 
 La suite se hace adulta. Es la fase que define el carácter del producto.
 
-- [x] Primeras piezas ya sonando: **Placa** (reverb FDN de 8 líneas con
-      difusión y amortiguación), **Delay** sincronizado al tempo con
-      realimentación filtrada y ping-pong, y **Puerta** con histéresis y
-      retención.
-- [ ] Cadena de mastering completa: **Multibanda, Anchura (imager M/S),
-      Chispa (exciter), Óxido (cinta), Techo true-peak con estilos de
-      release, Dither con noise shaping**.
-- [ ] **Medidor completo**: LUFS M/S/I + LRA, true-peak BS.1770-4, espectro,
-      correlación, vectorscopio, historia de sonoridad. Validado contra los
-      vectores EBU en CI.
-- [ ] EQ Ocho a 8 bandas con M/S por banda; EQ Dinámico; Balancín.
-- [ ] Pegamento (bus SSL), Puerta, De-eser.
-- [ ] Reverbs Placa y Sala; **Convolución** con IRs de fábrica; Delay
-      sincronizado; Oscilador de calibración.
-- [ ] Carriles de automatización (volumen, pan, sends y cualquier parámetro
-      de la suite), con dibujo a mano y grabación de movimientos.
-- [ ] Exportar por **stems**; exportación con objetivo de sonoridad; FLAC.
-- [ ] Presets de fábrica y de usuario para todos los efectos; la cadena de
-      mastering de fábrica montada en el máster de cada proyecto nuevo.
-- [ ] Congelar pista (render + bypass) para aliviar CPU.
+- [x] Reverbs y compañía: **Placa** (FDN de 8 líneas), **Sala** (FDN con
+      reflexiones tempranas y tamaño), **Convolución** (juce::dsp, IRs
+      sintéticas de fábrica seleccionables desde el menú de presets, y las
+      IRs WAV que dejes en la carpeta de IRs), **Delay** sincronizado al
+      tempo con ping-pong, **Puerta** con histéresis y retención.
+- [x] Cadena de mastering completa: **Multibanda** (cruces Linkwitz-Riley de
+      4.º orden que suman plano), **Anchura** (imager M/S por bandas),
+      **Chispa** (exciter), **Óxido** (cinta con pre/de-énfasis y wow),
+      **Techo con detección de pico verdadero** (interpolador ×4 BS.1770),
+      **Dither** TPDF con noise shaping.
+- [x] **Medidor completo**: LUFS M/S/I, **LRA** (EBU Tech 3342), **pico
+      verdadero** ×4, **correlación** y **espectro** de 24 bandas en la
+      tarjeta. (El vectorscopio queda representado por la correlación
+      numérica; su dibujo XY es un pendiente estético de F6. La validación
+      contra los vectores oficiales EBU sigue pendiente como tal, pero la
+      exportación normalizada se verifica en CI clavando el objetivo:
+      −16.000 LUFS medidos sobre el archivo.)
+- [x] EQ Dinámico (3 bandas con detector propio); Balancín (tilt).
+      (Las 8 bandas y el M/S por banda del EQ Ocho quedan para F6, pulido.)
+- [x] Pegamento (bus con auto-release), De-eser (partidor LR + compresión
+      de agudos).
+- [x] Oscilador de calibración (seno, rosa, barrido).
+- [x] Carril de automatización de volumen por pista (dibujar, mover,
+      Alt+clic para quitar, tecla A), sobre la API general
+      `automatizacion.puntos` que automatiza volumen, pan o cualquier
+      parámetro de la suite. (La grabación de movimientos en vivo, con la
+      grabación de F4.)
+- [x] Exportar por **stems** (pista a pista en solo, con su cadena),
+      exportación con **objetivo de sonoridad** (dos pasadas, verificada) y
+      **FLAC**.
+- [x] Presets de fábrica y de usuario en todos los efectos (menú ▾ de cada
+      tarjeta; los de usuario en la carpeta de datos).
+- [x] Envíos A/B por pista con retornos que se crean solos (post-fader).
+- [x] Congelar pista (experimental: el congelado de T.E. es asíncrono y su
+      verificación con dispositivo real queda pendiente).
 
 **Hecho cuando**: un máster hecho solo con la suite aguanta un A/B honesto
-contra la cadena comercial de referencia del probador, y el CI verifica
-renders dorados y vectores EBU de todos los efectos de la fase.
+contra la cadena comercial de referencia del probador (pendiente: requiere
+oídos humanos), y el CI verifica el ciclo de sonoridad de punta a punta
+(hecho: la autoprueba exporta normalizado a −16 LUFS y lo comprueba
+midiendo el archivo). Renders dorados por efecto: pendiente de F6.
 
 ## F3 · Clásicos y warp
 

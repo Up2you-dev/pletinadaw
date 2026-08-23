@@ -7,6 +7,7 @@
 
 #include "motor.h"
 #include "efectos.h"
+#include "efectos2.h"
 #include "protocolo.h"
 
 #include <cmath>
@@ -34,7 +35,13 @@ namespace
     const char* TIPOS_SUITE[] = { UtilidadPlugin::xmlTypeName, CompresorPlugin::xmlTypeName,
                                   TechoPlugin::xmlTypeName, EQOchoPlugin::xmlTypeName,
                                   MedidorPlugin::xmlTypeName, PlacaPlugin::xmlTypeName,
-                                  DelayPlugin::xmlTypeName, PuertaPlugin::xmlTypeName };
+                                  DelayPlugin::xmlTypeName, PuertaPlugin::xmlTypeName,
+                                  MultibandaPlugin::xmlTypeName, AnchuraPlugin::xmlTypeName,
+                                  ChispaPlugin::xmlTypeName, OxidoPlugin::xmlTypeName,
+                                  DitherPlugin::xmlTypeName, OsciladorPlugin::xmlTypeName,
+                                  SalaPlugin::xmlTypeName, PegamentoPlugin::xmlTypeName,
+                                  DeeserPlugin::xmlTypeName, EQDinamicoPlugin::xmlTypeName,
+                                  BalancinPlugin::xmlTypeName, ConvolucionPlugin::xmlTypeName };
 }
 
 Motor::Motor (Opciones o, std::function<void (const juce::String&)> e)
@@ -341,6 +348,37 @@ juce::var Motor::listarPistas()
         }
         pon (p, "clips", clips);
         pon (p, "plugins", describirCadena (cadenaUsuario (indice - 1)));
+
+        // Envíos a los dos buses, si los hay; retorno y congelada, si lo son.
+        double envios[2] = { -100.0, -100.0 };
+        bool esRetorno = false;
+        for (auto enchufado : pista->pluginList.getPlugins())
+        {
+            if (auto* e = dynamic_cast<te::AuxSendPlugin*> (enchufado))
+                if (e->busNumber >= 0 && e->busNumber < 2)
+                    envios[e->busNumber] = e->getGainDb();
+            if (dynamic_cast<te::AuxReturnPlugin*> (enchufado) != nullptr)
+                esRetorno = true;
+        }
+        juce::Array<juce::var> enviosVar { envios[0], envios[1] };
+        pon (p, "envios", enviosVar);
+        pon (p, "retorno", esRetorno);
+        pon (p, "congelada", pista->isFrozen (te::Track::individualFreeze));
+
+        // La curva de volumen, para el carril de automatización de la interfaz.
+        juce::Array<juce::var> curvaVolumen;
+        if (auto* volumen = pista->getVolumePlugin())
+        {
+            auto& curva = volumen->volParam->getCurve();
+            for (int j = 0; j < curva.getNumPoints(); ++j)
+            {
+                auto d = objeto();
+                pon (d, "t", curva.getPointTime (j).inSeconds());
+                pon (d, "v", te::volumeFaderPositionToDB (curva.getPointValue (j)));
+                curvaVolumen.add (d);
+            }
+        }
+        pon (p, "automatizacionVolumen", curvaVolumen);
 
         pistas.add (p);
     }
@@ -772,6 +810,265 @@ juce::var Motor::activarPlugin (int indicePista, int indice, bool activo)
     return juce::var (true);
 }
 
+/* ===================================== envíos, congelar, presets, curvas */
+
+juce::var Motor::envioPista (int indice, int bus, double nivelDb)
+{
+    asegurarEdit();
+    bus = juce::jlimit (0, 1, bus);
+
+    auto* objetivo = pista (indice);
+    if (objetivo == nullptr)
+        throw std::runtime_error ("no existe la pista");
+
+    // El retorno del bus se crea la primera vez que alguien envía a él: una
+    // pista normal con un AuxReturn delante, que aparece en la mesa como otra.
+    bool hayRetorno = false;
+    for (auto p : te::getAudioTracks (*edit))
+        for (auto enchufado : p->pluginList.getPlugins())
+            if (auto* retorno = dynamic_cast<te::AuxReturnPlugin*> (enchufado))
+                if (retorno->busNumber == bus)
+                    hayRetorno = true;
+
+    if (! hayRetorno)
+    {
+        auto pistas = te::getAudioTracks (*edit);
+        auto nueva = edit->insertNewAudioTrack (te::TrackInsertPoint (nullptr, pistas.isEmpty() ? nullptr : pistas.getLast()), nullptr);
+        nueva->setName (juce::String ("Retorno ") + (bus == 0 ? "A" : "B"));
+        auto retorno = edit->getPluginCache().createNewPlugin (te::AuxReturnPlugin::xmlTypeName, {});
+        if (auto* r = dynamic_cast<te::AuxReturnPlugin*> (retorno.get()))
+            r->busNumber = bus;
+        nueva->pluginList.insertPlugin (retorno, 0, nullptr);
+    }
+
+    te::AuxSendPlugin* envio = nullptr;
+    for (auto enchufado : objetivo->pluginList.getPlugins())
+        if (auto* e = dynamic_cast<te::AuxSendPlugin*> (enchufado))
+            if (e->busNumber == bus)
+                envio = e;
+
+    if (envio == nullptr)
+    {
+        auto nuevo = edit->getPluginCache().createNewPlugin (te::AuxSendPlugin::xmlTypeName, {});
+        envio = dynamic_cast<te::AuxSendPlugin*> (nuevo.get());
+        if (envio == nullptr)
+            throw std::runtime_error ("no se pudo crear el envío");
+        envio->busNumber = bus;
+        objetivo->pluginList.insertPlugin (nuevo, objetivo->pluginList.size(), nullptr);
+    }
+
+    envio->setGainDb ((float) juce::jlimit (-100.0, 6.0, nivelDb));
+    emitirModelo();
+    return juce::var (true);
+}
+
+juce::var Motor::congelarPista (int indice, bool activo)
+{
+    asegurarEdit();
+    auto* objetivo = pista (indice);
+    if (objetivo == nullptr)
+        throw std::runtime_error ("no existe la pista");
+
+    objetivo->setFrozen (activo, te::Track::individualFreeze);
+    emitirModelo();
+    return juce::var (objetivo->isFrozen (te::Track::individualFreeze));
+}
+
+namespace
+{
+    juce::File carpetaPresets (const juce::String& tipo)
+    {
+        return juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
+                 .getChildFile ("PletinaDAW").getChildFile ("presets").getChildFile (tipo);
+    }
+
+    // Presets de fábrica: puntos de partida con nombre honesto, no magia.
+    struct PresetFabrica { const char* tipo; const char* nombre; const char* parametros; };
+    const PresetFabrica PRESETS_FABRICA[] = {
+        { "compresor", "Voz suave",       "umbral=-24;ratio=2.5;ataque=8;relajacion=150;ganancia=4" },
+        { "compresor", "Pegada bateria",  "umbral=-15;ratio=4;ataque=25;relajacion=80;ganancia=3" },
+        { "techo",     "Master -1 dB",    "techo=-1;relajacion=60" },
+        { "techo",     "Aplastar",        "techo=-6;relajacion=150" },
+        { "placa",     "Placa de voz",    "predelay=25;decaimiento=1.8;amortiguacion=6000;mezcla=0.28" },
+        { "placa",     "Placa larga",     "predelay=40;decaimiento=4.5;amortiguacion=4500;mezcla=0.35" },
+        { "sala",      "Habitacion",      "tamano=0.7;decaimiento=0.8;tempranas=0.8;mezcla=0.22" },
+        { "sala",      "Catedral",        "tamano=1.5;decaimiento=8;tempranas=0.4;mezcla=0.35" },
+        { "delay",     "Negra ping-pong", "tiempo=6;pingpong=1;realimentacion=0.45;mezcla=0.3" },
+        { "delay",     "Slapback",        "tiempo=1;pingpong=0;realimentacion=0.05;mezcla=0.25" },
+        { "multibanda","Master 3 bandas", "cruceBajo=180;cruceAlto=3200;ratio=2.5;ataque=20;relajacion=200;umbralGrave=-24;umbralMedio=-22;umbralAgudo=-24" },
+        { "anchura",   "Graves al centro","cruce=200;anchoGraves=0.2;anchoAgudos=1.15" },
+    };
+}
+
+juce::var Motor::listarPresets (const juce::String& tipo)
+{
+    juce::Array<juce::var> lista;
+
+    // La convolución no tiene presets: tiene respuestas de impulso. Las de
+    // fábrica (sintéticas) y las que el usuario deje en su carpeta de IRs.
+    if (tipo == ConvolucionPlugin::xmlTypeName)
+    {
+        for (const auto& archivo : carpetaIRsDeFabrica().findChildFiles (juce::File::findFiles, false, "*.wav"))
+        {
+            auto d = objeto();
+            pon (d, "nombre", archivo.getFileNameWithoutExtension());
+            pon (d, "fabrica", true);
+            lista.add (d);
+        }
+        auto r = objeto();
+        pon (r, "tipo", tipo);
+        pon (r, "presets", lista);
+        return r;
+    }
+
+    for (const auto& p : PRESETS_FABRICA)
+        if (tipo == p.tipo)
+        {
+            auto d = objeto();
+            pon (d, "nombre", p.nombre);
+            pon (d, "fabrica", true);
+            lista.add (d);
+        }
+
+    auto carpeta = carpetaPresets (tipo);
+    for (const auto& archivo : carpeta.findChildFiles (juce::File::findFiles, false, "*.xml"))
+    {
+        auto d = objeto();
+        pon (d, "nombre", archivo.getFileNameWithoutExtension());
+        pon (d, "fabrica", false);
+        lista.add (d);
+    }
+
+    auto r = objeto();
+    pon (r, "tipo", tipo);
+    pon (r, "presets", lista);
+    return r;
+}
+
+juce::var Motor::guardarPreset (int indicePista, int indice, const juce::String& nombre)
+{
+    auto usuario = cadenaUsuario (indicePista);
+    if (indice < 0 || indice >= usuario.size())
+        throw std::runtime_error ("no existe el plugin");
+    if (nombre.trim().isEmpty())
+        throw std::runtime_error ("falta el nombre del preset");
+
+    auto carpeta = carpetaPresets (usuario[indice]->getPluginType());
+    carpeta.createDirectory();
+    const auto archivo = carpeta.getChildFile (juce::File::createLegalFileName (nombre) + ".xml");
+
+    if (auto xml = usuario[indice]->state.createXml())
+        if (xml->writeTo (archivo))
+            return juce::var (true);
+
+    throw std::runtime_error ("no se pudo guardar el preset");
+}
+
+juce::var Motor::cargarPreset (int indicePista, int indice, const juce::String& nombre)
+{
+    auto usuario = cadenaUsuario (indicePista);
+    if (indice < 0 || indice >= usuario.size())
+        throw std::runtime_error ("no existe el plugin");
+
+    auto* plugin = usuario[indice];
+    edit->getUndoManager().beginNewTransaction ("cargar preset");
+
+    // Convolución: el "preset" es la IR con ese nombre.
+    if (auto* conv = dynamic_cast<ConvolucionPlugin*> (plugin))
+    {
+        const auto archivo = carpetaIRsDeFabrica().getChildFile (nombre + ".wav");
+        if (! archivo.existsAsFile())
+            throw std::runtime_error ("no existe la IR: " + nombre.toStdString());
+        conv->rutaIR = archivo.getFullPathName();
+        emitirModelo();
+        return juce::var (true);
+    }
+
+    // Primero los de fábrica: parámetro=valor separados por punto y coma.
+    for (const auto& p : PRESETS_FABRICA)
+    {
+        if (plugin->getPluginType() != p.tipo || nombre != p.nombre)
+            continue;
+
+        for (const auto& par : juce::StringArray::fromTokens (juce::String (p.parametros), ";", ""))
+        {
+            const auto id = par.upToFirstOccurrenceOf ("=", false, false);
+            const auto valor = par.fromFirstOccurrenceOf ("=", false, false).getFloatValue();
+            for (auto parametro : plugin->getAutomatableParameters())
+                if (parametro->paramID == id)
+                    parametro->setParameter (valor, juce::sendNotificationSync);
+        }
+
+        emitirModelo();
+        return juce::var (true);
+    }
+
+    const auto archivo = carpetaPresets (plugin->getPluginType())
+                           .getChildFile (juce::File::createLegalFileName (nombre) + ".xml");
+    if (! archivo.existsAsFile())
+        throw std::runtime_error ("no existe el preset: " + nombre.toStdString());
+
+    if (auto xml = juce::parseXML (archivo))
+    {
+        plugin->restorePluginStateFromValueTree (juce::ValueTree::fromXml (*xml));
+        emitirModelo();
+        return juce::var (true);
+    }
+
+    throw std::runtime_error ("el preset no se pudo leer");
+}
+
+juce::var Motor::puntosAutomatizacion (const juce::var& params)
+{
+    asegurarEdit();
+
+    const int indicePista = params.hasProperty ("pista") ? (int) params["pista"] : -1;
+    const auto objetivo = params["parametro"].toString();
+
+    te::AutomatableParameter::Ptr parametro;
+    const bool esVolumen = objetivo == "volumen";
+
+    if (esVolumen || objetivo == "pan")
+    {
+        te::VolumeAndPanPlugin* volumen = indicePista == -1 ? edit->getMasterVolumePlugin().get()
+                                                            : (pista (indicePista) != nullptr ? pista (indicePista)->getVolumePlugin() : nullptr);
+        if (volumen == nullptr)
+            throw std::runtime_error ("no existe la pista");
+        parametro = esVolumen ? volumen->volParam : volumen->panParam;
+    }
+    else
+    {
+        auto usuario = cadenaUsuario (indicePista);
+        const int indice = params.hasProperty ("plugin") ? (int) params["plugin"] : -1;
+        if (indice < 0 || indice >= usuario.size())
+            throw std::runtime_error ("no existe el plugin");
+        for (auto p : usuario[indice]->getAutomatableParameters())
+            if (p->paramID == objetivo)
+                parametro = p;
+        if (parametro == nullptr)
+            throw std::runtime_error ("no existe el parámetro: " + objetivo.toStdString());
+    }
+
+    edit->getUndoManager().beginNewTransaction ("automatizar");
+
+    auto& curva = parametro->getCurve();
+    curva.clear();
+
+    if (auto* puntos = params["puntos"].getArray())
+    {
+        for (const auto& punto : *puntos)
+        {
+            float v = (float) (double) punto["v"];
+            if (esVolumen)
+                v = te::decibelsToVolumeFaderPosition (v);
+            curva.addPoint (te::TimePosition::fromSeconds ((double) punto["t"]), v, 0.0f);
+        }
+    }
+
+    emitirModelo();
+    return juce::var (true);
+}
+
 /* ============================================================ transporte */
 
 juce::var Motor::tocar()
@@ -869,7 +1166,101 @@ juce::var Motor::rehacer()
 
 /* ================================================================ render */
 
-juce::var Motor::exportar (const juce::String& ruta)
+namespace
+{
+    /** Sonoridad integrada de un archivo, con el mismo prefiltro K y las
+        mismas puertas que el Medidor: el número que enseña es el que aplica. */
+    double medirLufsArchivo (juce::AudioFormatManager& formatos, const juce::File& archivo)
+    {
+        std::unique_ptr<juce::AudioFormatReader> lector (formatos.createReaderFor (archivo));
+        if (lector == nullptr)
+            return -1000.0;
+
+        const double fs = lector->sampleRate;
+        const int canales = juce::jmin (2, (int) lector->numChannels);
+
+        juce::dsp::IIR::Filter<float> k1[2], k2[2];
+        auto shelf = juce::dsp::IIR::Coefficients<float>::makeHighShelf (fs, 1681.97, 0.7071752f,
+                                                                         juce::Decibels::decibelsToGain (3.99966f));
+        auto alto = juce::dsp::IIR::Coefficients<float>::makeHighPass (fs, 38.1354f, 0.5003270f);
+        for (int c = 0; c < 2; ++c) { k1[c].coefficients = shelf; k2[c].coefficients = alto; }
+
+        const int porBloque = (int) std::lround (fs / 10.0);
+        std::vector<double> bloques100;
+        juce::AudioBuffer<float> buffer (canales, 65536);
+        double acumulada = 0.0; int acumuladas = 0;
+
+        for (juce::int64 leidas = 0; leidas < lector->lengthInSamples;)
+        {
+            const int n = (int) juce::jmin ((juce::int64) buffer.getNumSamples(), lector->lengthInSamples - leidas);
+            lector->read (&buffer, 0, n, leidas, true, true);
+
+            for (int i = 0; i < n; ++i)
+            {
+                double energia = 0.0;
+                for (int c = 0; c < canales; ++c)
+                {
+                    const float v = k2[c].processSample (k1[c].processSample (buffer.getSample (c, i)));
+                    energia += (double) v * v;
+                }
+                acumulada += energia;
+                if (++acumuladas >= porBloque)
+                {
+                    bloques100.push_back (acumulada / acumuladas);
+                    acumulada = 0.0; acumuladas = 0;
+                }
+            }
+            leidas += n;
+        }
+
+        // Bloques de 400 ms solapados al 75 %, puerta absoluta y relativa.
+        auto aLufs = [] (double e) { return -0.691 + 10.0 * std::log10 (juce::jmax (1e-12, e)); };
+        std::vector<double> ventanas;
+        for (size_t i = 3; i < bloques100.size(); ++i)
+        {
+            const double media = (bloques100[i] + bloques100[i-1] + bloques100[i-2] + bloques100[i-3]) / 4.0;
+            if (aLufs (media) > -70.0) ventanas.push_back (media);
+        }
+        if (ventanas.empty()) return -1000.0;
+
+        double media = 0.0; for (auto e : ventanas) media += e; media /= (double) ventanas.size();
+        const double umbral = aLufs (media) - 10.0;
+        double suma = 0.0; size_t cuenta = 0;
+        for (auto e : ventanas) if (aLufs (e) > umbral) { suma += e; cuenta += 1; }
+        return cuenta > 0 ? aLufs (suma / (double) cuenta) : -1000.0;
+    }
+
+    /** Reescribe un WAV aplicando una ganancia, a 24 bits, con archivo temporal. */
+    bool aplicarGananciaWav (juce::AudioFormatManager& formatos, const juce::File& archivo, float ganancia)
+    {
+        std::unique_ptr<juce::AudioFormatReader> lector (formatos.createReaderFor (archivo));
+        if (lector == nullptr) return false;
+
+        const auto temporal = archivo.getSiblingFile (".~" + archivo.getFileName());
+        temporal.deleteFile();
+        juce::WavAudioFormat wav;
+        auto flujo = temporal.createOutputStream();
+        if (flujo == nullptr) return false;
+        std::unique_ptr<juce::AudioFormatWriter> escritor (
+            wav.createWriterFor (flujo.release(), lector->sampleRate, lector->numChannels, 24, {}, 0));
+        if (escritor == nullptr) return false;
+
+        juce::AudioBuffer<float> buffer ((int) lector->numChannels, 65536);
+        for (juce::int64 leidas = 0; leidas < lector->lengthInSamples;)
+        {
+            const int n = (int) juce::jmin ((juce::int64) buffer.getNumSamples(), lector->lengthInSamples - leidas);
+            lector->read (&buffer, 0, n, leidas, true, true);
+            buffer.applyGain (0, n, ganancia);
+            escritor->writeFromAudioSampleBuffer (buffer, 0, n);
+            leidas += n;
+        }
+        escritor.reset();
+        lector.reset();
+        return temporal.moveFileTo (archivo);
+    }
+}
+
+juce::var Motor::exportar (const juce::String& ruta, bool stems, double lufsObjetivo)
 {
     asegurarEdit();
 
@@ -877,23 +1268,96 @@ juce::var Motor::exportar (const juce::String& ruta)
         throw std::runtime_error ("el proyecto está vacío: nada que exportar");
 
     const juce::File destino (ruta);
-    if (destino.getFileExtension().toLowerCase() != ".wav")
-        throw std::runtime_error ("de momento la exportación es a WAV");
+    const auto extension = destino.getFileExtension().toLowerCase();
+    if (extension != ".wav" && extension != ".flac")
+        throw std::runtime_error ("la exportación es a WAV o FLAC");
 
     parar();
-    destino.deleteFile();
 
     // Render bloqueante en el hilo de mensajes: para lo que dura una canción,
     // más simple y más robusto que otra maquinaria de hilos. La interfaz ya
     // avisa de que está exportando.
-    const bool ok = te::Renderer::renderToFile (*edit, destino, false);
+    bool ok = true;
+    juce::Array<juce::var> archivos;
+
+    if (stems)
+    {
+        // Un stem por pista, en solo, con toda la cadena puesta. Los estados
+        // de solo y mute se devuelven tal cual estaban.
+        auto pistasAudio = te::getAudioTracks (*edit);
+        std::vector<std::pair<bool, bool>> estados;
+        for (auto p : pistasAudio) estados.push_back ({ p->isSolo (false), p->isMuted (false) });
+
+        int numero = 1;
+        for (int i = 0; i < pistasAudio.size(); ++i)
+        {
+            if (pistasAudio[i]->getClips().isEmpty() && cadenaUsuario (i).isEmpty())
+                { numero += 1; continue; }
+
+            for (int j = 0; j < pistasAudio.size(); ++j)
+                pistasAudio[j]->setSolo (j == i);
+
+            const auto nombreLimpio = pistasAudio[i]->getName().replaceCharacters ("/\\:*?\"<>|", "---------");
+            auto archivo = destino.getSiblingFile (destino.getFileNameWithoutExtension()
+                                                   + juce::String::formatted ("-%02d-", numero++) + nombreLimpio + ".wav");
+            archivo.deleteFile();
+            ok = te::Renderer::renderToFile (*edit, archivo, false) && archivo.existsAsFile() && ok;
+            archivos.add (archivo.getFullPathName());
+        }
+
+        for (int j = 0; j < pistasAudio.size(); ++j)
+        {
+            pistasAudio[j]->setSolo (estados[(size_t) j].first);
+            pistasAudio[j]->setMute (estados[(size_t) j].second);
+        }
+    }
+    else
+    {
+        destino.deleteFile();
+        const bool esFlac = extension == ".flac";
+        const auto wavIntermedio = esFlac ? destino.getSiblingFile (".~render.wav") : destino;
+        wavIntermedio.deleteFile();
+        ok = te::Renderer::renderToFile (*edit, wavIntermedio, false) && wavIntermedio.existsAsFile();
+
+        if (ok && esFlac)
+        {
+            std::unique_ptr<juce::AudioFormatReader> lector (formatos().createReaderFor (wavIntermedio));
+            juce::FlacAudioFormat flac;
+            auto flujo = destino.createOutputStream();
+            if (lector != nullptr && flujo != nullptr)
+            {
+                std::unique_ptr<juce::AudioFormatWriter> escritor (
+                    flac.createWriterFor (flujo.release(), lector->sampleRate, lector->numChannels, 24, {}, 5));
+                ok = escritor != nullptr && escritor->writeFromAudioReader (*lector, 0, lector->lengthInSamples);
+            }
+            else
+                ok = false;
+            lector.reset();
+            wavIntermedio.deleteFile();
+        }
+
+        archivos.add (destino.getFullPathName());
+
+        if (ok && extension == ".wav" && lufsObjetivo > -100.0)
+        {
+            // Normalización de sonoridad: se mide con el mismo código que el
+            // Medidor y se aplica la diferencia. Dos pasadas, cero sorpresas.
+            const double medida = medirLufsArchivo (formatos(), destino);
+            if (medida > -900.0)
+            {
+                const float ganancia = juce::Decibels::decibelsToGain ((float) (lufsObjetivo - medida));
+                ok = aplicarGananciaWav (formatos(), destino, ganancia) && ok;
+            }
+        }
+    }
 
     auto r = objeto();
     pon (r, "ruta", destino.getFullPathName());
-    pon (r, "ok", ok && destino.existsAsFile());
+    pon (r, "archivos", archivos);
+    pon (r, "ok", ok);
     emitir (protocolo::evento ("render.terminado", r));
 
-    if (! (ok && destino.existsAsFile()))
+    if (! ok)
         throw std::runtime_error ("el render ha fallado");
 
     return r;
@@ -967,10 +1431,17 @@ void Motor::timerCallback()
                 const auto lectura = medidor->leer();
                 auto l = objeto();
                 pon (l, "pico", lectura.picoDb);
+                pon (l, "picoVerdadero", lectura.picoVerdaderoDb);
                 pon (l, "m", lectura.lufsM);
                 pon (l, "s", lectura.lufsS);
                 pon (l, "i", lectura.lufsI);
+                pon (l, "lra", lectura.lra);
+                pon (l, "correlacion", lectura.correlacion);
                 pon (datos, "lufs", l);
+
+                juce::Array<juce::var> bandasEspectro;
+                for (auto v : lectura.espectro) bandasEspectro.add ((double) v);
+                pon (datos, "espectro", bandasEspectro);
             }
 
     const bool reproduciendo = datos["reproduciendo"];
@@ -1142,6 +1613,27 @@ int Motor::autoprueba()
         }
     }
 
+    // Un envío al bus A (crea su retorno), una curva de volumen, y un preset.
+    envioPista (0, 0, -12.0);
+    {
+        auto puntos = juce::var (juce::Array<juce::var>());
+        auto p1 = objeto(); pon (p1, "t", 0.0); pon (p1, "v", 0.0);
+        auto p2 = objeto(); pon (p2, "t", 1.0); pon (p2, "v", -18.0);
+        puntos.getArray()->add (p1); puntos.getArray()->add (p2);
+        auto peticion = objeto();
+        pon (peticion, "pista", 0); pon (peticion, "parametro", "volumen"); pon (peticion, "puntos", puntos);
+        puntosAutomatizacion (peticion);
+    }
+    cargarPreset (-1, 5, "Master -1 dB");
+    guardarPreset (-1, 5, "prueba-mia");
+    cargarPreset (-1, 5, "prueba-mia");
+
+    // Exportar normalizado a -16 LUFS y comprobar que el archivo MIDE -16:
+    // la validación de toda la cadena de sonoridad, de la medición al render.
+    const auto normalizada = carpeta.getChildFile ("autoprueba-normalizada.wav");
+    exportar (normalizada.getFullPathName(), false, -16.0);
+    const double lufsMedida = medirLufsArchivo (formatos(), normalizada);
+
     // Guardar, reabrir, y que el proyecto vuelva entero.
     guardarProyecto();
     const auto rutaProyecto = carpetaProyecto.getFullPathName();
@@ -1157,7 +1649,10 @@ int Motor::autoprueba()
     const bool deshace = clipsTrasDeshacer == 3;
     const bool renderiza = picoRender > 0.05f;
     const bool persiste = clipsReabiertos == 3 && pluginsMaster == 7;
-    const bool ok = avanza && suena && deshace && renderiza && persiste;
+    const int puntosCurva = (int) reabierto["pistas"][0]["automatizacionVolumen"].size();
+    const bool automatiza = puntosCurva == 2;
+    const bool normaliza = std::abs (lufsMedida - (-16.0)) < 1.5;
+    const bool ok = avanza && suena && deshace && renderiza && persiste && automatiza && normaliza;
 
     auto r = objeto();
     pon (r, "ok", ok);
@@ -1167,6 +1662,8 @@ int Motor::autoprueba()
     pon (r, "picoRender", picoRender);
     pon (r, "clipsReabiertos", clipsReabiertos);
     pon (r, "pluginsMaster", pluginsMaster);
+    pon (r, "puntosCurva", puntosCurva);
+    pon (r, "lufsNormalizada", lufsMedida);
     emitir (protocolo::evento ("prueba", r));
 
     return ok ? 0 : 1;

@@ -108,6 +108,21 @@ function encontrar(x, y) {
 
 let gesto = null; // {tipo, clip, filaOrigen, filaDestino, sX, inicio0, fin0, inicioNuevo, finNuevo, movido}
 
+/* ---------- automatización de volumen ---------- */
+
+const dbAY = (db, y0, h) => y0 + h * (1 - (Math.max(-60, Math.min(6, db)) + 60) / 66);
+const yADb = (y, y0, h) => Math.max(-60, Math.min(6, (1 - (y - y0) / h) * 66 - 60));
+
+function puntoBajoElCursor(pista, x, y, y0, h) {
+  const puntos = pista.automatizacionVolumen || [];
+  for (let i = 0; i < puntos.length; i += 1) {
+    const px = xDeSegundos(puntos[i].t);
+    const py = dbAY(puntos[i].v, y0, h);
+    if (Math.abs(x - px) <= 7 && Math.abs(y - py) <= 7) return i;
+  }
+  return -1;
+}
+
 function previsualizacion(clip) {
   if (gesto && gesto.clip && gesto.clip.id === clip.id) {
     return {
@@ -203,6 +218,34 @@ function bajar(evento) {
     return;
   }
 
+  // Modo automatización: los clics en la pista seleccionada editan la curva
+  // de volumen, no los clips. Alt+clic sobre un punto lo quita.
+  if (estado.automatizando && donde.fila === estado.pistaSeleccionada
+      && (donde.zona === 'clip' || donde.zona === 'carril' || donde.zona === 'bordeIzq' || donde.zona === 'bordeDer'
+          || donde.zona === 'fundidoIzq' || donde.zona === 'fundidoDer')) {
+    const altoPista = altoPistaActual();
+    const y0 = REGLA_H + donde.fila * altoPista + 4;
+    const h = altoPista - 8;
+    const pista = estado.pistas[donde.fila];
+    const puntos = (pista.automatizacionVolumen || []).map((p) => ({ ...p }));
+    const indice = puntoBajoElCursor(pista, x, y, y0, h);
+
+    if (indice >= 0 && evento.altKey) {
+      puntos.splice(indice, 1);
+      acciones.alAutomatizar(donde.fila, puntos);
+      return;
+    }
+    if (indice >= 0) {
+      gesto = { tipo: 'autoPunto', fila: donde.fila, puntos, indice, y0, h, movido: false };
+      canvas.setPointerCapture(evento.pointerId);
+      return;
+    }
+    puntos.push({ t: iman(Math.max(0, segundosDeX(x)), evento.altKey), v: yADb(y, y0, h) });
+    puntos.sort((a, b) => a.t - b.t);
+    acciones.alAutomatizar(donde.fila, puntos);
+    return;
+  }
+
   if (donde.zona === 'fundidoIzq' || donde.zona === 'fundidoDer') {
     const { clip, fila } = donde;
     gesto = {
@@ -265,6 +308,14 @@ function mover(evento) {
     return;
   }
 
+  if (gesto.tipo === 'autoPunto') {
+    gesto.movido = true;
+    const punto = gesto.puntos[gesto.indice];
+    punto.t = iman(Math.max(0, segundosDeX(x)), evento.altKey);
+    punto.v = yADb(y, gesto.y0, gesto.h);
+    return;
+  }
+
   const dxSegundos = (x - gesto.sX) / estado.pxPorSegundo;
   gesto.movido = gesto.movido || Math.abs(x - gesto.sX) > 3;
 
@@ -301,6 +352,14 @@ function soltar() {
     const inicio = Math.min(g.bucleInicio, g.bucleFin);
     const fin = Math.max(g.bucleInicio, g.bucleFin);
     if (fin - inicio > 0.01) acciones.alBucle(true, inicio, fin);
+    return;
+  }
+
+  if (g.tipo === 'autoPunto') {
+    if (g.movido) {
+      g.puntos.sort((a, b) => a.t - b.t);
+      acciones.alAutomatizar(g.fila, g.puntos);
+    }
     return;
   }
 
@@ -483,6 +542,45 @@ export function pintar(ahora) {
       }
 
       ctx.restore();
+    }
+
+    // La curva de volumen: tenue siempre que exista; editable y con puntos
+    // gordos cuando el modo automatización está puesto en esta pista.
+    const puntosCurva = pista.automatizacionVolumen || [];
+    const editando = estado.automatizando && i === pistaSeleccionada;
+    if (puntosCurva.length > 0 || editando) {
+      const y0 = y + 4;
+      const h = altoPista - 8;
+
+      if (editando) {
+        ctx.fillStyle = `${color.acento}14`;
+        ctx.fillRect(CABECERA_W, y, ancho - CABECERA_W, altoPista);
+      }
+
+      const enGesto = gesto?.tipo === 'autoPunto' && gesto.fila === i ? gesto.puntos : puntosCurva;
+      ctx.strokeStyle = editando ? color.acento : `${pista.color}88`;
+      ctx.lineWidth = editando ? 1.8 : 1.2;
+      ctx.beginPath();
+      if (enGesto.length === 0) {
+        const yBase = dbAY(pista.volumenDb ?? 0, y0, h);
+        ctx.moveTo(CABECERA_W, yBase);
+        ctx.lineTo(ancho, yBase);
+      } else {
+        ctx.moveTo(CABECERA_W, dbAY(enGesto[0].v, y0, h));
+        for (const punto of enGesto) ctx.lineTo(xDeSegundos(punto.t), dbAY(punto.v, y0, h));
+        ctx.lineTo(ancho, dbAY(enGesto[enGesto.length - 1].v, y0, h));
+      }
+      ctx.stroke();
+      ctx.lineWidth = 1;
+
+      if (editando) {
+        ctx.fillStyle = color.acento;
+        for (const punto of enGesto) {
+          ctx.beginPath();
+          ctx.arc(xDeSegundos(punto.t), dbAY(punto.v, y0, h), 4, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
     }
   });
 

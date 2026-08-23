@@ -93,13 +93,13 @@ async function guardar() {
   }
 }
 
-async function exportar() {
+async function exportar(opciones = {}) {
   if (!conectado()) return soloConMotor();
   const ruta = await puente.dialogos.exportar();
   if (!ruta) return;
   cambiar({ exportando: true });
   try {
-    await orden('render.exportar', { ruta });
+    await orden('render.exportar', { ruta, ...opciones });
   } catch (error) {
     aviso(`No se pudo exportar: ${error.message}`);
     cambiar({ exportando: false });
@@ -196,6 +196,13 @@ const accionesArreglo = {
     if (conectado()) orden('transporte.bucle', { activo, inicio, fin }).catch((e) => aviso(e.message));
   },
 
+  alAutomatizar(fila, puntos) {
+    // Optimista en la réplica; el motor confirma con su evento modelo.
+    const pistas = estado.pistas.map((p, i) => (i === fila ? { ...p, automatizacionVolumen: puntos } : p));
+    cambiar({ pistas });
+    if (conectado()) orden('automatizacion.puntos', { pista: fila, parametro: 'volumen', puntos }).catch((e) => aviso(e.message));
+  },
+
   alRenombrarPista(fila, nombreActual, caja) {
     const entrada = document.createElement('input');
     entrada.className = 'renombrar';
@@ -290,6 +297,14 @@ montarMesa({
     if (!conectado()) return soloConMotor();
     orden('pista.crear').catch((e) => aviso(e.message));
   },
+  alEnviar: (fila, bus, nivelDb) => {
+    if (!conectado()) return soloConMotor();
+    orden('pista.envio', { pista: fila, bus, nivelDb: nivelDb <= -59.5 ? -100 : nivelDb }).catch((e) => aviso(e.message));
+  },
+  alCongelar: (fila, activo) => {
+    if (!conectado()) return soloConMotor();
+    orden('pista.congelar', { pista: fila, activo }).catch((e) => aviso(e.message));
+  },
 });
 montarTira({
   alInsertarPlugin: (pista, tipo) => {
@@ -306,6 +321,22 @@ montarTira({
   alActivarPlugin: (pista, indice, activo) => {
     if (!conectado()) return soloConMotor();
     orden('plugin.activar', { pista, indice, activo }).catch((e) => aviso(e.message));
+  },
+  alListarPresets: async (tipo) => {
+    if (!conectado()) return [];
+    try {
+      return (await orden('plugin.presets', { tipo })).presets || [];
+    } catch {
+      return [];
+    }
+  },
+  alCargarPreset: (pista, indice, nombre) => {
+    if (conectado()) orden('plugin.preset.cargar', { pista, indice, nombre }).catch((e) => aviso(e.message));
+  },
+  alGuardarPreset: (pista, indice, nombre) => {
+    if (conectado()) orden('plugin.preset.guardar', { pista, indice, nombre })
+      .then(() => aviso(`Preset «${nombre}» guardado.`))
+      .catch((e) => aviso(e.message));
   },
 });
 pintarChipMotor();
@@ -344,6 +375,7 @@ if (puente) {
           der: datos.der ?? -100,
           pistas: datos.pistas || [],
           lufs: datos.lufs || null,
+          espectro: datos.espectro || null,
         },
       });
     } else if (nombre === 'modelo') {
@@ -400,6 +432,11 @@ window.addEventListener('keydown', (evento) => {
     borrarSeleccion();
   } else if (evento.key === 't' || evento.key === 'T') {
     dividirEnCursor();
+  } else if (evento.key === 'a' || evento.key === 'A') {
+    cambiar({ automatizando: !estado.automatizando });
+    aviso(estado.automatizando
+      ? 'Automatización de volumen: clic añade punto, arrastra mueve, Alt+clic quita (A para salir).'
+      : 'Automatización desactivada.');
   } else if (evento.key === 'm' || evento.key === 'M') {
     document.getElementById('app').classList.toggle('sin-mesa');
   } else if (evento.key === 'b' || evento.key === 'B') {

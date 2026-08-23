@@ -13,8 +13,8 @@ export const CATALOGO = [
     grupo: 'Ecualizadores',
     dispositivos: [
       { nombre: 'EQ Ocho', detalle: 'paramétrico con analizador', fase: 1, tipo: 'eqocho', lista: true },
-      { nombre: 'EQ Dinámico', detalle: 'bandas que comprimen', fase: 2 },
-      { nombre: 'Balancín', detalle: 'tilt de un mando', fase: 2 },
+      { nombre: 'EQ Dinámico', detalle: 'bandas que comprimen', fase: 2, tipo: 'eqdinamico', lista: true },
+      { nombre: 'Balancín', detalle: 'tilt de un mando', fase: 2, tipo: 'balancin', lista: true },
       { nombre: 'Válvulas', detalle: 'estilo Pultec', fase: 3 },
       { nombre: 'Consola', detalle: 'canal británico', fase: 3 },
       { nombre: 'Peine', detalle: 'gráfico de 31 bandas', fase: 3 },
@@ -24,10 +24,10 @@ export const CATALOGO = [
     grupo: 'Dinámica',
     dispositivos: [
       { nombre: 'Compresor', detalle: 'VCA limpio', fase: 1, tipo: 'compresor', lista: true },
-      { nombre: 'Pegamento', detalle: 'bus estilo SSL', fase: 2 },
-      { nombre: 'Multibanda', detalle: 'compresión por bandas', fase: 2 },
+      { nombre: 'Pegamento', detalle: 'bus estilo SSL', fase: 2, tipo: 'pegamento', lista: true },
+      { nombre: 'Multibanda', detalle: 'compresión por bandas', fase: 2, tipo: 'multibanda', lista: true },
       { nombre: 'Puerta', detalle: 'gate con sidechain', fase: 2, tipo: 'puerta', lista: true },
-      { nombre: 'De-eser', detalle: 'las eses a raya', fase: 2 },
+      { nombre: 'De-eser', detalle: 'las eses a raya', fase: 2, tipo: 'deeser', lista: true },
       { nombre: 'Remache', detalle: 'FET estilo 1176', fase: 3 },
       { nombre: 'Ópto', detalle: 'estilo LA-2A', fase: 3 },
       { nombre: 'Lámpara', detalle: 'vari-mu de máster', fase: 3 },
@@ -37,7 +37,7 @@ export const CATALOGO = [
     grupo: 'Reverbs',
     dispositivos: [
       { nombre: 'Placa', detalle: 'plate densa', fase: 2, tipo: 'placa', lista: true },
-      { nombre: 'Sala', detalle: 'algorítmica FDN', fase: 2 },
+      { nombre: 'Sala', detalle: 'algorítmica FDN', fase: 2, tipo: 'sala', lista: true },
       { nombre: 'Convolución', detalle: 'IRs de verdad', fase: 2 },
       { nombre: 'Muelle', detalle: 'spring con su boing', fase: 3 },
       { nombre: 'Espejismo', detalle: 'shimmer', fase: 3 },
@@ -56,7 +56,7 @@ export const CATALOGO = [
   {
     grupo: 'Saturación',
     dispositivos: [
-      { nombre: 'Óxido', detalle: 'cinta magnética', fase: 2 },
+      { nombre: 'Óxido', detalle: 'cinta magnética', fase: 2, tipo: 'oxido', lista: true },
       { nombre: 'Triodo', detalle: 'válvula', fase: 3 },
       { nombre: 'Sumadora', detalle: 'consola apurada', fase: 3 },
       { nombre: 'Machacadora', detalle: 'bitcrusher lo-fi', fase: 3 },
@@ -67,16 +67,16 @@ export const CATALOGO = [
     dispositivos: [
       { nombre: 'Techo', detalle: 'limitador true-peak', fase: 1, tipo: 'techo', lista: true },
       { nombre: 'Medidor', detalle: 'LUFS, espectro, fase', fase: 1, tipo: 'medidor', lista: true },
-      { nombre: 'Anchura', detalle: 'imager M/S', fase: 2 },
-      { nombre: 'Chispa', detalle: 'exciter por bandas', fase: 2 },
-      { nombre: 'Dither', detalle: 'TPDF con shaping', fase: 2 },
+      { nombre: 'Anchura', detalle: 'imager M/S', fase: 2, tipo: 'anchura', lista: true },
+      { nombre: 'Chispa', detalle: 'exciter por bandas', fase: 2, tipo: 'chispa', lista: true },
+      { nombre: 'Dither', detalle: 'TPDF con shaping', fase: 2, tipo: 'dither', lista: true },
     ],
   },
   {
     grupo: 'Utilidades',
     dispositivos: [
       { nombre: 'Utilidad', detalle: 'ganancia, fase, anchura', fase: 1, tipo: 'utilidad', lista: true },
-      { nombre: 'Oscilador', detalle: 'señal de prueba', fase: 2 },
+      { nombre: 'Oscilador', detalle: 'señal de prueba', fase: 2, tipo: 'oscilador', lista: true },
       { nombre: 'Afinador', detalle: 'cromático', fase: 4 },
     ],
   },

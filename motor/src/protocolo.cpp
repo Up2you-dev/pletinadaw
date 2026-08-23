@@ -84,6 +84,8 @@ namespace protocolo
             if (metodo == "pista.borrar")         return respuesta (id, motor.borrarPista ((int) params["pista"]));
             if (metodo == "pista.renombrar")      return respuesta (id, motor.renombrarPista ((int) params["pista"], params["nombre"].toString()));
             if (metodo == "pista.mezcla")         return respuesta (id, motor.mezclaPista (params.hasProperty ("pista") ? (int) params["pista"] : -1, params));
+            if (metodo == "pista.envio")          return respuesta (id, motor.envioPista ((int) params["pista"], (int) params["bus"], (double) params["nivelDb"]));
+            if (metodo == "pista.congelar")       return respuesta (id, motor.congelarPista ((int) params["pista"], (bool) params["activo"]));
 
             if (metodo == "clip.importar")        return respuesta (id, motor.importarClip ((int) params["pista"], params["ruta"].toString(), (double) params["inicio"]));
             if (metodo == "clip.mover")           return respuesta (id, motor.moverClip (params["id"].toString(), (double) params["inicio"], params.hasProperty ("pista") ? (int) params["pista"] : -1));
@@ -98,6 +100,10 @@ namespace protocolo
             if (metodo == "plugin.quitar")        return respuesta (id, motor.quitarPlugin (params.hasProperty ("pista") ? (int) params["pista"] : -1, (int) params["indice"]));
             if (metodo == "plugin.parametro")     return respuesta (id, motor.parametroPlugin (params.hasProperty ("pista") ? (int) params["pista"] : -1, (int) params["indice"], params["parametro"].toString(), (double) params["valor"]));
             if (metodo == "plugin.activar")       return respuesta (id, motor.activarPlugin (params.hasProperty ("pista") ? (int) params["pista"] : -1, (int) params["indice"], (bool) params["activo"]));
+            if (metodo == "plugin.presets")       return respuesta (id, motor.listarPresets (params["tipo"].toString()));
+            if (metodo == "plugin.preset.guardar") return respuesta (id, motor.guardarPreset (params.hasProperty ("pista") ? (int) params["pista"] : -1, (int) params["indice"], params["nombre"].toString()));
+            if (metodo == "plugin.preset.cargar")  return respuesta (id, motor.cargarPreset (params.hasProperty ("pista") ? (int) params["pista"] : -1, (int) params["indice"], params["nombre"].toString()));
+            if (metodo == "automatizacion.puntos") return respuesta (id, motor.puntosAutomatizacion (params));
 
             if (metodo == "transporte.tocar")     return respuesta (id, motor.tocar());
             if (metodo == "transporte.parar")     return respuesta (id, motor.parar());
@@ -110,7 +116,9 @@ namespace protocolo
             if (metodo == "deshacer.deshacer")    return respuesta (id, motor.deshacer());
             if (metodo == "deshacer.rehacer")     return respuesta (id, motor.rehacer());
 
-            if (metodo == "render.exportar")      return respuesta (id, motor.exportar (params["ruta"].toString()));
+            if (metodo == "render.exportar")      return respuesta (id, motor.exportar (params["ruta"].toString(),
+                                                                     params.hasProperty ("stems") && (bool) params["stems"],
+                                                                     params.hasProperty ("lufsObjetivo") ? (double) params["lufsObjetivo"] : -1000.0));
 
             if (metodo == "salir")
             {

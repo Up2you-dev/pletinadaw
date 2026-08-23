@@ -18,7 +18,14 @@ export function montarTransporte(acciones) {
     <button class="btn btn-icono" id="b-guardar" title="Guardar (Ctrl+S)">${ICO.guardar}</button>
     <span class="separador"></span>
     <button class="btn" id="b-importar" title="Importar audio a la pista seleccionada">${ICO.importar}<span>Importar</span></button>
-    <button class="btn" id="b-exportar" title="Exportar la mezcla a WAV">${ICO.exportar}<span>Exportar</span></button>
+    <span class="exportador">
+      <button class="btn" id="b-exportar" title="Exportar">${ICO.exportar}<span>Exportar</span></button>
+      <div class="menu" id="menu-exportar" hidden>
+        <button data-modo="master">WAV del máster</button>
+        <button data-modo="lufs">WAV a −14 LUFS</button>
+        <button data-modo="stems">Stems por pista</button>
+      </div>
+    </span>
     <span class="separador"></span>
     <button class="btn btn-icono" id="al-principio" title="Ir al principio (Inicio)">${ICO.alPrincipio}</button>
     <button class="btn btn-icono btn-primary" id="tocar" title="Tocar / parar (espacio)">${ICO.tocar}</button>
@@ -50,7 +57,17 @@ export function montarTransporte(acciones) {
   $('#b-abrir').addEventListener('click', acciones.alAbrirProyecto);
   $('#b-guardar').addEventListener('click', acciones.alGuardar);
   $('#b-importar').addEventListener('click', acciones.alImportarDialogo);
-  $('#b-exportar').addEventListener('click', acciones.alExportar);
+
+  const menuExportar = $('#menu-exportar');
+  $('#b-exportar').addEventListener('click', () => { menuExportar.hidden = !menuExportar.hidden; });
+  for (const opcion of menuExportar.querySelectorAll('button')) {
+    opcion.addEventListener('click', () => {
+      menuExportar.hidden = true;
+      const modo = opcion.dataset.modo;
+      acciones.alExportar(modo === 'stems' ? { stems: true }
+                        : modo === 'lufs' ? { lufsObjetivo: -14 } : {});
+    });
+  }
   botonMetronomo.addEventListener('click', acciones.alMetronomo);
 
   const bpm = $('#bpm');

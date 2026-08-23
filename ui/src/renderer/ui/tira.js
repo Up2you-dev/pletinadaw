@@ -29,7 +29,9 @@ export function pintarTira() {
   const indicePista = estado.pistaSeleccionada;
 
   const tarjetas = plugins.map((plugin) => {
-    const mandos = (plugin.parametros || []).map((p) => `
+    const mandos = plugin.tipo === 'medidor'
+      ? '<canvas class="espectro" width="220" height="52" title="Espectro del máster"></canvas>'
+      : (plugin.parametros || []).map((p) => `
       <label class="mando" title="${esc(p.nombre)}: ${Number(p.valor).toFixed(2)}">
         <span>${esc(p.nombre)}</span>
         <input type="range" data-parametro="${esc(p.id)}"
@@ -38,10 +40,11 @@ export function pintarTira() {
     `).join('');
 
     return `
-      <div class="dispositivo${plugin.activo ? ' activo' : ' apagado'}" data-indice="${plugin.indice}">
+      <div class="dispositivo${plugin.activo ? ' activo' : ' apagado'}" data-indice="${plugin.indice}" data-tipo="${esc(plugin.tipo)}">
         <div class="cabeza">
           <button class="led" title="${plugin.activo ? 'Apagar' : 'Encender'}"></button>
           <span class="nombre">${esc(plugin.nombre)}</span>
+          <button class="presets" title="Presets">▾</button>
           <button class="cerrar" title="Quitar">${ICO.x}</button>
         </div>
         <div class="mandos">${mandos}</div>
@@ -69,6 +72,40 @@ export function pintarTira() {
     });
     tarjeta.querySelector('.cerrar').addEventListener('click', () => {
       acciones.alQuitarPlugin(indicePista, indice);
+    });
+    tarjeta.querySelector('.presets').addEventListener('click', async (evento) => {
+      const previo = tarjeta.querySelector('.menu');
+      if (previo) return previo.remove();
+
+      const lista = await acciones.alListarPresets(tarjeta.dataset.tipo);
+      const menu = document.createElement('div');
+      menu.className = 'menu presets-menu';
+      menu.innerHTML = lista.map((p) =>
+        `<button data-preset="${esc(p.nombre)}">${esc(p.nombre)}${p.fabrica ? ' ·f' : ''}</button>`).join('')
+        + '<button class="guardar-preset">Guardar actual…</button>';
+      tarjeta.appendChild(menu);
+
+      for (const opcion of menu.querySelectorAll('button[data-preset]')) {
+        opcion.addEventListener('click', () => {
+          menu.remove();
+          acciones.alCargarPreset(indicePista, indice, opcion.dataset.preset);
+        });
+      }
+      menu.querySelector('.guardar-preset').addEventListener('click', () => {
+        const entrada = document.createElement('input');
+        entrada.placeholder = 'nombre del preset';
+        menu.replaceChildren(entrada);
+        entrada.focus();
+        entrada.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' && entrada.value.trim()) {
+            acciones.alGuardarPreset(indicePista, indice, entrada.value.trim());
+            menu.remove();
+          }
+          if (e.key === 'Escape') menu.remove();
+          e.stopPropagation();
+        });
+      });
+      evento.stopPropagation();
     });
 
     for (const mando of tarjeta.querySelectorAll('input[data-parametro]')) {

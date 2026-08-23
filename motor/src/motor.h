@@ -65,6 +65,8 @@ public:
     juce::var borrarPista (int indice);
     juce::var renombrarPista (int indice, const juce::String& nombre);
     juce::var mezclaPista (int indice, const juce::var& params);
+    juce::var envioPista (int indice, int bus, double nivelDb);
+    juce::var congelarPista (int indice, bool activo);
 
     // Clips.
     juce::var importarClip (int pista, const juce::String& ruta, double inicio);
@@ -81,6 +83,13 @@ public:
     juce::var quitarPlugin (int pista, int indice);
     juce::var parametroPlugin (int pista, int indice, const juce::String& parametro, double valor);
     juce::var activarPlugin (int pista, int indice, bool activo);
+    juce::var listarPresets (const juce::String& tipo);
+    juce::var guardarPreset (int pista, int indice, const juce::String& nombre);
+    juce::var cargarPreset (int pista, int indice, const juce::String& nombre);
+
+    // Automatización: sustituye entera la curva de un parámetro.
+    // params: {pista, parametro: "volumen"|"pan"|id, plugin?: indice, puntos: [{t, v}...]}
+    juce::var puntosAutomatizacion (const juce::var& params);
 
     // Transporte y compañía.
     juce::var tocar();
@@ -94,8 +103,9 @@ public:
     juce::var deshacer();
     juce::var rehacer();
 
-    // Render offline del máster a WAV. Bloquea el hilo de mensajes lo que dure.
-    juce::var exportar (const juce::String& ruta);
+    // Render offline a WAV: máster o stems por pista, con normalización de
+    // sonoridad opcional. Bloquea el hilo de mensajes lo que dure.
+    juce::var exportar (const juce::String& ruta, bool stems = false, double lufsObjetivo = -1000.0);
 
     // Autoprueba para CI y contenedores: reproduce, edita, exporta y verifica.
     int autoprueba();
