@@ -71,6 +71,10 @@ public:
     void applyToBuffer (const te::PluginRenderContext&) override;
     void restorePluginStateFromValueTree (const juce::ValueTree&) override;
 
+    // Entrada lateral (side-chain): 4 entradas declaradas; la fuente llega
+    // por los canales 2-3 del buffer cuando hay pista asignada.
+    void getChannelNames (juce::StringArray* entradas, juce::StringArray* salidas) override;
+
     juce::CachedValue<float> umbral, ratio, ataque, relajacion, ganancia;
     te::AutomatableParameter::Ptr pUmbral, pRatio, pAtaque, pRelajacion, pGanancia;
 
@@ -98,6 +102,10 @@ public:
     void deinitialise() override {}
     void applyToBuffer (const te::PluginRenderContext&) override;
     void restorePluginStateFromValueTree (const juce::ValueTree&) override;
+
+    // Entrada lateral (side-chain): 4 entradas declaradas; la fuente llega
+    // por los canales 2-3 del buffer cuando hay pista asignada.
+    void getChannelNames (juce::StringArray* entradas, juce::StringArray* salidas) override;
 
     double getLatencySeconds() override { return MIRADA_MS / 1000.0; }
 
@@ -239,6 +247,10 @@ public:
     void deinitialise() override {}
     void applyToBuffer (const te::PluginRenderContext&) override;
     void restorePluginStateFromValueTree (const juce::ValueTree&) override;
+
+    // Entrada lateral (side-chain): 4 entradas declaradas; la fuente llega
+    // por los canales 2-3 del buffer cuando hay pista asignada.
+    void getChannelNames (juce::StringArray* entradas, juce::StringArray* salidas) override;
 
     juce::CachedValue<float> umbral, ataque, relajacion, retencion, rango;
     te::AutomatableParameter::Ptr pUmbral, pAtaque, pRelajacion, pRetencion, pRango;

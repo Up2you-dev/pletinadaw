@@ -11,7 +11,9 @@ atajos vive dentro de la aplicación, en la tecla `?`.
    se guarda entera, se lleva a otro disco entera.
 2. **Importa audio** con el botón Importar o **arrastrando archivos** al
    arreglo (WAV, MP3, FLAC, OGG). El audio se copia a `media/`: el proyecto
-   nunca depende de archivos sueltos de por ahí.
+   nunca depende de archivos sueltos de por ahí. La sección **Sonidos** del
+   rail es el navegador: elige una carpeta, **clic escucha** el archivo (sin
+   tocar el proyecto) y **doble clic lo importa** en el cursor.
 3. **Espacio** toca y para. La regla de arriba busca; su mitad alta dibuja
    el bucle (y el botón de ciclo lo enciende).
 4. **Guarda con Ctrl+S**. Además, el proyecto se autoguarda cada dos minutos
@@ -42,6 +44,9 @@ atajos vive dentro de la aplicación, en la tecla `?`.
   fábrica y los tuyos.
 - **Automatización**: tecla `A` y dibuja la curva de volumen sobre la pista
   (clic añade punto, arrastrar mueve, Alt+clic quita).
+- **Side-chain**: la Puerta, el Compresor y el Techo tienen el selector ◁ en
+  su tarjeta: elige la pista que dispara el detector (el bombo que abre el
+  bajo, o que agacha el colchón).
 - **Congelar**: el botón ❄ del canal (experimental).
 
 ## Grabar
@@ -71,6 +76,7 @@ atajos vive dentro de la aplicación, en la tecla `?`.
   una ranura vacía copia dentro el clip seleccionado del arreglo; clic en
   una llena la **lanza** (con la cuantización de lanzamiento del pie de la
   rejilla); el ▶ de la izquierda lanza la escena entera; ⏹ lo para todo.
+  Con la sesión abierta, las teclas **1–8 lanzan la escena** y **0 lo para**.
 
 ## VST3
 

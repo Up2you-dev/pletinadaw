@@ -337,6 +337,17 @@ montarRail({
     orden('clip.importar', { pista: fila, ruta, inicio: posicionParaPintar() })
       .catch((e) => aviso(e.message));
   },
+  alPrevia: async (ruta) => {
+    if (!conectado()) return soloConMotor();
+    try {
+      await orden('previa.tocar', { ruta });
+    } catch (error) {
+      aviso(error.message);
+    }
+  },
+  alPararPrevia: () => {
+    if (conectado()) orden('previa.parar').catch(() => {});
+  },
 });
 montarArreglo(accionesArreglo);
 montarMesa({
@@ -398,6 +409,10 @@ montarTira({
     orden('clip.warp', { id, ...params }).catch((e) => aviso(e.message));
   },
   alAbrirPianoRoll: (id) => cambiar({ pianoRoll: id }),
+  alLateral: (pista, indice, fuente) => {
+    if (!conectado()) return soloConMotor();
+    orden('plugin.lateral', { pista, indice, fuente }).catch((e) => aviso(e.message));
+  },
   alEscanearVst: async () => {
     if (!conectado()) return soloConMotor();
     aviso('Buscando VST3 en las carpetas del sistema…');
@@ -465,17 +480,60 @@ async function sincronizar() {
   }
 }
 
+/** El último proyecto con carpeta, para reabrirlo tras un arranque o una caída. */
+const ultimoProyecto = {
+  leer() {
+    try { return localStorage.getItem('pletina-ultimo-proyecto') || ''; } catch { return ''; }
+  },
+  guardar(ruta) {
+    try {
+      if (ruta) localStorage.setItem('pletina-ultimo-proyecto', ruta);
+    } catch { /* sin almacenamiento, sin drama */ }
+  },
+};
+
+/**
+ * Recuperación: si el motor vuelve (arranque o caída) y había un proyecto,
+ * se reabre solo. Tras una caída manda la réplica (lo que estabas tocando);
+ * en un arranque limpio, el último proyecto recordado. El autoguardado de
+ * cada dos minutos hace que lo perdido sea, como mucho, eso.
+ */
+let recuperacionInicialHecha = false;
+
+async function reabrirSiToca(traumatico) {
+  if (!traumatico && recuperacionInicialHecha) return false;
+  recuperacionInicialHecha = true;
+  const ruta = estado.proyecto.ruta || (traumatico ? '' : ultimoProyecto.leer());
+  if (!ruta) return false;
+  try {
+    aplicarModelo(await orden('proyecto.abrir', { ruta }));
+    if (traumatico) aviso('El motor se ha recuperado: proyecto reabierto (autoguardado de hace 2 min como mucho).');
+    return true;
+  } catch {
+    if (traumatico) aviso('El motor se ha recuperado, pero el proyecto no se pudo reabrir.');
+    return false;
+  }
+}
+
 if (puente) {
-  puente.motor.estado().then((m) => {
+  puente.motor.estado().then(async (m) => {
     cambiar({ motor: m });
-    if (m.estado === 'conectado') sincronizar();
-    else if (m.estado === 'maqueta') cambiar({ pistas: pistasDeMaqueta(), pistaSeleccionada: 0 });
+    if (m.estado === 'conectado') {
+      await reabrirSiToca(false);
+      sincronizar();
+    } else if (m.estado === 'maqueta') {
+      cambiar({ pistas: pistasDeMaqueta(), pistaSeleccionada: 0 });
+    }
   });
 
-  puente.motor.alCambiarEstado((m) => {
+  puente.motor.alCambiarEstado(async (m) => {
     const antes = estado.motor.estado;
     cambiar({ motor: m });
-    if (m.estado === 'conectado' && antes !== 'conectado') sincronizar();
+    if (m.estado === 'conectado' && antes !== 'conectado') {
+      // Venir de 'caido' o 'arrancando' con réplica viva = caída en caliente.
+      await reabrirSiToca(antes === 'caido' || (antes === 'arrancando' && !!estado.proyecto.ruta));
+      sincronizar();
+    }
   });
 
   puente.motor.alRecibirEvento(({ nombre, datos }) => {
@@ -516,6 +574,7 @@ if (!puente) {
 
 suscribir((_estado, cambios) => {
   if ('motor' in cambios) pintarChipMotor();
+  if ('proyecto' in cambios && estado.proyecto.ruta) ultimoProyecto.guardar(estado.proyecto.ruta);
   if ('reproduciendo' in cambios || 'metronomo' in cambios || 'grabando' in cambios) pintarBoton();
   if ('proyecto' in cambios || 'bpm' in cambios || 'exportando' in cambios) pintarProyecto();
   if ('pistas' in cambios || 'master' in cambios || 'pistaSeleccionada' in cambios) {
@@ -555,6 +614,7 @@ const ATAJOS = [
   ['Ctrl+D', 'duplicar los clips seleccionados'],
   ['A', 'automatización de volumen (dibujar en la pista)'],
   ['Tab', 'Session View'],
+  ['1–8 · 0', 'en sesión: lanzar escena · parar todo'],
   ['M · B', 'plegar la mesa · el rail'],
   ['Ctrl+rueda', 'zoom del arreglo'],
   ['Doble clic en el vacío', 'crear un clip MIDI'],
@@ -676,6 +736,12 @@ window.addEventListener('keydown', (evento) => {
   } else if (evento.key === 'Tab') {
     evento.preventDefault();
     $('#b-sesion')?.click();
+  } else if (estado.vistaSesion && /^[1-8]$/.test(evento.key)) {
+    // En la Session View, 1..8 lanzan la escena y 0 lo para todo.
+    if (!conectado()) return soloConMotor();
+    orden('sesion.lanzar', { escena: Number(evento.key) - 1 }).catch((e) => aviso(e.message));
+  } else if (estado.vistaSesion && evento.key === '0') {
+    if (conectado()) orden('sesion.parar', {}).catch(() => {});
   } else if (evento.key === '?') {
     conmutarAyuda();
   } else if (evento.key === 'Escape') {

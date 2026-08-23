@@ -60,6 +60,10 @@ public:
     juce::var escanearVst();
     juce::var listaVst() const;
 
+    // Audición previa: un archivo suena en su edit aparte, sin rozar el proyecto.
+    juce::var tocarPrevia (const juce::String& ruta);
+    juce::var pararPrevia();
+
     // Proyecto: una carpeta con proyecto.tracktionedit y media/.
     juce::var nuevoProyecto (const juce::String& carpeta);
     juce::var abrirProyecto (const juce::String& carpeta);
@@ -104,6 +108,7 @@ public:
     juce::var quitarPlugin (int pista, int indice);
     juce::var parametroPlugin (int pista, int indice, const juce::String& parametro, double valor);
     juce::var activarPlugin (int pista, int indice, bool activo);
+    juce::var lateralPlugin (int pista, int indice, int fuente);   // fuente -1 = quitar
     juce::var listarPresets (const juce::String& tipo);
     juce::var guardarPreset (int pista, int indice, const juce::String& nombre);
     juce::var cargarPreset (int pista, int indice, const juce::String& nombre);
@@ -165,6 +170,7 @@ private:
                         std::make_unique<te::UIBehaviour>(),
                         std::make_unique<ComportamientoPletina>() };
     std::unique_ptr<te::Edit> edit;
+    std::unique_ptr<te::Edit> editPrevia;           // el tocadiscos de la audición
     juce::File carpetaProyecto;                     // vacía = proyecto temporal
 
     // Medidores: máster (F0) y uno por pista (F1), leídos por el timer.

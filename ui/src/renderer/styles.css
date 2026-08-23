@@ -233,6 +233,10 @@ svg{display:block; fill:none; stroke:currentColor; stroke-width:1.7; stroke-line
   cursor:pointer; padding:2px; flex:none;
 }
 .dispositivo .cerrar:hover{color:var(--danger)}
+.dispositivo .lateral{
+  max-width:104px; font-size:10px; color:var(--muted); background:var(--panel-2);
+  border:1px solid var(--line); border-radius:4px; padding:1px 2px; flex:none;
+}
 .dispositivo .cerrar svg{width:13px; height:13px}
 .dispositivo .mandos{
   display:grid; grid-auto-flow:column; grid-template-rows:repeat(2, auto);
@@ -291,6 +295,7 @@ svg{display:block; fill:none; stroke:currentColor; stroke-width:1.7; stroke-line
 
 .rail .boton-carpeta, .rail .sonido{cursor:pointer}
 .rail .boton-carpeta:hover span, .rail .sonido:hover span{color:var(--accent)}
+.rail .sonido.sonando span{color:var(--exito)}
 
 .medidor-lienzos{display:flex; gap:6px; align-items:center}
 .medidor-lienzos canvas{border-radius:4px; background:var(--bg)}

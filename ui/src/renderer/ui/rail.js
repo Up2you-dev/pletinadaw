@@ -12,6 +12,7 @@ import { estado } from '../estado.js';
 
 let acciones = null;
 let sonidos = { carpeta: null, archivos: [] };
+let rutaSonando = null;
 
 export function montarRail(inyectadas) {
   if (inyectadas) acciones = inyectadas;
@@ -28,8 +29,10 @@ export function montarRail(inyectadas) {
   `;
 
   const filasSonidos = sonidos.archivos.slice(0, 200).map((archivo) => `
-    <div class="entrada sonido" data-ruta="${esc(archivo.ruta)}" title="clic: importar en el cursor — ${esc(archivo.ruta)}">
+    <div class="entrada sonido${archivo.ruta === rutaSonando ? ' sonando' : ''}" data-ruta="${esc(archivo.ruta)}"
+         title="clic: escuchar / parar · doble clic: importar en el cursor — ${esc(archivo.ruta)}">
       ${ICO.onda}<span>${esc(archivo.nombre)}</span>
+      ${archivo.ruta === rutaSonando ? '<span class="detalle">▶</span>' : ''}
     </div>`).join('');
   const navegador = `
     <h2>Sonidos</h2>
@@ -61,6 +64,22 @@ export function montarRail(inyectadas) {
     }
   });
   for (const fila of host.querySelectorAll('.sonido')) {
-    fila.addEventListener('click', () => acciones?.alImportarSonido?.(fila.dataset.ruta));
+    // Clic: escuchar (o parar si ya suena). Doble clic: importar en el cursor.
+    fila.addEventListener('click', async () => {
+      const ruta = fila.dataset.ruta;
+      if (rutaSonando === ruta) {
+        rutaSonando = null;
+        await acciones?.alPararPrevia?.();
+      } else {
+        rutaSonando = ruta;
+        await acciones?.alPrevia?.(ruta);
+      }
+      montarRail();
+    });
+    fila.addEventListener('dblclick', () => {
+      rutaSonando = null;
+      acciones?.alPararPrevia?.();
+      acciones?.alImportarSonido?.(fila.dataset.ruta);
+    });
   }
 }

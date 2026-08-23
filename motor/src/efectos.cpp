@@ -18,6 +18,45 @@ namespace
                            ID_ATAQUE ("ataque"), ID_RELAJACION ("relajacion"), ID_TECHO ("techo");
 
     inline float dbAGanancia (float db) { return juce::Decibels::decibelsToGain (db, -100.0f); }
+
+    /** Nombres de canales de los dinámicos con entrada lateral: 4 entradas
+        (2 + side-chain) y 2 salidas. Con eso T.E. ya sabe cablear la fuente
+        a los canales 2-3 del buffer (guessSidechainRouting). */
+    void nombresConLateral (juce::StringArray* entradas, juce::StringArray* salidas)
+    {
+        if (entradas != nullptr)
+            *entradas = { TRANS("Entrada izquierda"), TRANS("Entrada derecha"),
+                          TRANS("Lateral izquierda"), TRANS("Lateral derecha") };
+        if (salidas != nullptr)
+            *salidas = { TRANS("Salida izquierda"), TRANS("Salida derecha") };
+    }
+
+    /** Punteros al detector lateral si la fuente está cableada (canales 2-3). */
+    struct Lateral
+    {
+        const float* izq = nullptr;
+        const float* der = nullptr;
+        bool activo() const { return izq != nullptr; }
+    };
+
+    Lateral abrirLateral (const te::PluginRenderContext& fc, const te::Plugin& plugin)
+    {
+        Lateral lateral;
+        if (plugin.getSidechainSourceID().isValid() && fc.destBuffer->getNumChannels() >= 3)
+        {
+            lateral.izq = fc.destBuffer->getReadPointer (2, fc.bufferStartSample);
+            lateral.der = fc.destBuffer->getNumChannels() >= 4
+                            ? fc.destBuffer->getReadPointer (3, fc.bufferStartSample) : lateral.izq;
+        }
+        return lateral;
+    }
+
+    /** Los canales laterales no deben seguir viaje: se limpian tras usarse. */
+    void cerrarLateral (const te::PluginRenderContext& fc)
+    {
+        for (int c = 2; c < fc.destBuffer->getNumChannels(); ++c)
+            fc.destBuffer->clear (c, fc.bufferStartSample, fc.bufferNumSamples);
+    }
 }
 
 void registrarEfectos (te::Engine& engine)
@@ -207,11 +246,20 @@ void CompresorPlugin::applyToBuffer (const te::PluginRenderContext& fc)
 
     float* datos[2] = { buffer.getWritePointer (0, inicio),
                         canales > 1 ? buffer.getWritePointer (1, inicio) : nullptr };
+    const auto lateral = abrirLateral (fc, *this);
 
     for (int i = 0; i < n; ++i)
     {
-        float pico = std::abs (datos[0][i]);
-        if (datos[1] != nullptr) pico = juce::jmax (pico, std::abs (datos[1][i]));
+        // El detector escucha la entrada lateral si hay pista cableada; si no,
+        // la propia señal, como toda la vida.
+        float pico;
+        if (lateral.activo())
+            pico = juce::jmax (std::abs (lateral.izq[i]), std::abs (lateral.der[i]));
+        else
+        {
+            pico = std::abs (datos[0][i]);
+            if (datos[1] != nullptr) pico = juce::jmax (pico, std::abs (datos[1][i]));
+        }
 
         // Seguidor de envolvente con los dos canales enlazados: sube al ritmo
         // del ataque, baja al de la relajación, y no se cuela entre ciclos de
@@ -227,6 +275,13 @@ void CompresorPlugin::applyToBuffer (const te::PluginRenderContext& fc)
         datos[0][i] *= g;
         if (datos[1] != nullptr) datos[1][i] *= g;
     }
+
+    cerrarLateral (fc);
+}
+
+void CompresorPlugin::getChannelNames (juce::StringArray* entradas, juce::StringArray* salidas)
+{
+    nombresConLateral (entradas, salidas);
 }
 
 void CompresorPlugin::restorePluginStateFromValueTree (const juce::ValueTree& v)
@@ -290,12 +345,14 @@ void TechoPlugin::applyToBuffer (const te::PluginRenderContext& fc)
     float* datos[2] = { buffer.getWritePointer (0, inicio),
                         canales > 1 ? buffer.getWritePointer (1, inicio) : nullptr };
     float* linea[2] = { retardo.getWritePointer (0), retardo.getWritePointer (1) };
+    const auto lateral = abrirLateral (fc, *this);
 
     for (int i = 0; i < n; ++i)
     {
         // Entra la muestra nueva en la línea de retardo y sale la vieja. De la
         // entrante se apunta su pico VERDADERO (sobremuestreado ×4): lo que el
-        // techo promete es que ni los picos entre muestras lo superan.
+        // techo promete es que ni los picos entre muestras lo superan. Con
+        // entrada lateral, el detector escucha la fuente (modo agacharse).
         float picoEntrante = 0.0f;
         for (int c = 0; c < 2; ++c)
         {
@@ -303,7 +360,8 @@ void TechoPlugin::applyToBuffer (const te::PluginRenderContext& fc)
             const float entrante = canal[i];
             if (datos[c] != nullptr) datos[c][i] = linea[c][posRetardo];
             linea[c][posRetardo] = entrante;
-            picoEntrante = juce::jmax (picoEntrante, tp != nullptr ? tp->medir (c, entrante) : std::abs (entrante));
+            const float sentida = lateral.activo() ? (c == 0 ? lateral.izq[i] : lateral.der[i]) : entrante;
+            picoEntrante = juce::jmax (picoEntrante, tp != nullptr ? tp->medir (c, sentida) : std::abs (sentida));
         }
         ventanaTP[(size_t) posRetardo] = picoEntrante;
         posRetardo = (posRetardo + 1) % mirada;
@@ -321,6 +379,13 @@ void TechoPlugin::applyToBuffer (const te::PluginRenderContext& fc)
         datos[0][i] *= atenuacion;
         if (datos[1] != nullptr) datos[1][i] *= atenuacion;
     }
+
+    cerrarLateral (fc);
+}
+
+void TechoPlugin::getChannelNames (juce::StringArray* entradas, juce::StringArray* salidas)
+{
+    nombresConLateral (entradas, salidas);
 }
 
 void TechoPlugin::restorePluginStateFromValueTree (const juce::ValueTree& v)
@@ -1019,11 +1084,20 @@ void PuertaPlugin::applyToBuffer (const te::PluginRenderContext& fc)
 
     float* datos[2] = { buffer.getWritePointer (0, inicio),
                         canales > 1 ? buffer.getWritePointer (1, inicio) : nullptr };
+    const auto lateral = abrirLateral (fc, *this);
 
     for (int i = 0; i < n; ++i)
     {
-        float pico = std::abs (datos[0][i]);
-        if (datos[1] != nullptr) pico = juce::jmax (pico, std::abs (datos[1][i]));
+        // Con entrada lateral, la puerta abre al ritmo de OTRA pista: el
+        // bombo que abre el bajo, el clásico. Sin ella, su propia señal.
+        float pico;
+        if (lateral.activo())
+            pico = juce::jmax (std::abs (lateral.izq[i]), std::abs (lateral.der[i]));
+        else
+        {
+            pico = std::abs (datos[0][i]);
+            if (datos[1] != nullptr) pico = juce::jmax (pico, std::abs (datos[1][i]));
+        }
 
         envolvente += (pico > envolvente ? cSeguidor : cRelaja * 0.5f) * (pico - envolvente);
 
@@ -1039,6 +1113,13 @@ void PuertaPlugin::applyToBuffer (const te::PluginRenderContext& fc)
         datos[0][i] *= g;
         if (datos[1] != nullptr) datos[1][i] *= g;
     }
+
+    cerrarLateral (fc);
+}
+
+void PuertaPlugin::getChannelNames (juce::StringArray* entradas, juce::StringArray* salidas)
+{
+    nombresConLateral (entradas, salidas);
 }
 
 void PuertaPlugin::restorePluginStateFromValueTree (const juce::ValueTree& v)

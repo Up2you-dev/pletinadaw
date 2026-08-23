@@ -101,6 +101,8 @@ namespace protocolo
             if (metodo == "vst.carpetas")         return respuesta (id, motor.carpetasVst (params));
             if (metodo == "vst.escanear")         return respuesta (id, motor.escanearVst());
             if (metodo == "vst.lista")            return respuesta (id, motor.listaVst());
+            if (metodo == "previa.tocar")         return respuesta (id, motor.tocarPrevia (params["ruta"].toString()));
+            if (metodo == "previa.parar")         return respuesta (id, motor.pararPrevia());
             if (metodo == "pista.armar")          return respuesta (id, motor.armarPista ((int) params["pista"], (bool) params["activo"], params.hasProperty ("entrada") ? (int) params["entrada"] : 0, params.hasProperty ("midi") && (bool) params["midi"]));
             if (metodo == "transporte.grabar")    return respuesta (id, motor.grabar (params));
 
@@ -118,6 +120,7 @@ namespace protocolo
             if (metodo == "plugin.quitar")        return respuesta (id, motor.quitarPlugin (params.hasProperty ("pista") ? (int) params["pista"] : -1, (int) params["indice"]));
             if (metodo == "plugin.parametro")     return respuesta (id, motor.parametroPlugin (params.hasProperty ("pista") ? (int) params["pista"] : -1, (int) params["indice"], params["parametro"].toString(), (double) params["valor"]));
             if (metodo == "plugin.activar")       return respuesta (id, motor.activarPlugin (params.hasProperty ("pista") ? (int) params["pista"] : -1, (int) params["indice"], (bool) params["activo"]));
+            if (metodo == "plugin.lateral")       return respuesta (id, motor.lateralPlugin (params.hasProperty ("pista") ? (int) params["pista"] : -1, (int) params["indice"], params.hasProperty ("fuente") ? (int) params["fuente"] : -1));
             if (metodo == "plugin.presets")       return respuesta (id, motor.listarPresets (params["tipo"].toString()));
             if (metodo == "plugin.preset.guardar") return respuesta (id, motor.guardarPreset (params.hasProperty ("pista") ? (int) params["pista"] : -1, (int) params["indice"], params["nombre"].toString()));
             if (metodo == "plugin.preset.cargar")  return respuesta (id, motor.cargarPreset (params.hasProperty ("pista") ? (int) params["pista"] : -1, (int) params["indice"], params["nombre"].toString()));

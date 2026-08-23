@@ -206,8 +206,13 @@ Se abre la puerta a los plugins de fuera y al directo.
       autoprueba lanza una ranura sin cuantizar y verifica que queda
       "tocando" con el transporte en marcha. Pendiente: grabar la sesión al
       arrangement, disparo por teclado/MIDI.
+- [x] **Side-chain enrutable entre pistas** para Puerta, Compresor y Techo:
+      cada uno declara su entrada lateral, `plugin.lateral` la cablea a una
+      pista (el selector ◁ de su tarjeta en la tira) y el detector escucha la
+      fuente. Verificado cuantitativamente: una puerta con señal a −34 dB y
+      umbral a −20 pasa de cerrada (−100 dB) a dejar los −34 exactos cuando
+      la dispara la pista fuerte, y vuelve a cerrar al quitarla.
 - [ ] Grupos de pistas; racks/cadenas con macros (8 mandos por rack).
-- [ ] Side-chain enrutables entre pistas (para Puerta, compresores y Techo).
 
 **Hecho cuando**: una sesión con 4 escenas se toca en directo (hecho en
 contenedor; el directo con manos y oídos, pendiente de hardware), un
@@ -246,9 +251,19 @@ Lo que separa "funciona" de "se recomienda".
 - [x] **Manual en español dentro de la app**: escrito ([manual](manual.md))
       y servido en la pestaña Manual de la ayuda (`?`), también en la app
       empaquetada. Pendiente: las visitas guiadas de primer arranque.
-- [x] **Navegador de sonidos, lo básico**: sección Sonidos en el rail —
-      elegir carpeta, listar sus audios y clic para importar en el cursor.
-      Pendiente: audición previa, búsqueda, favoritos y arrastre.
+- [x] **Navegador de sonidos con audición**: sección Sonidos en el rail —
+      elegir carpeta, listar sus audios, **clic escucha** (edit de previa
+      aparte, verificado en la autoprueba con el proyecto parado) y doble
+      clic importa en el cursor. Pendiente: búsqueda, favoritos y arrastre.
+- [x] **Recuperación tras caída del motor**: si el proceso de audio muere,
+      la interfaz lo relanza (eso ya estaba) y ahora además reabre sola el
+      proyecto (el autoguardado de cada 2 min acota lo perdido); al arrancar
+      la app, vuelve el último proyecto recordado.
+- [x] **Renders dorados por efecto**: `--prueba-efectos` compara además el
+      RMS de cada render contra la tabla de referencia (±0,5 dB en el DSP
+      determinista, ±0,9 donde hay LFO o ruido): un cambio de sonido no
+      intencionado rompe el CI. (Si Windows enseña deltas de coma flotante
+      mayores, la tolerancia se ajusta con esos datos en la mano.)
 - [ ] Actualizador que avisa (no que fuerza).
 - [ ] Beta pública, triaje, y corte de v1.0.
 

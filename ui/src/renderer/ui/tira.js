@@ -86,11 +86,19 @@ export function pintarTira() {
       </label>
     `).join('');
 
+    const lateral = plugin.admiteLateral ? `
+        <select class="lateral" title="Entrada lateral (side-chain): la pista que dispara el detector">
+          <option value="-1">lateral: no</option>
+          ${estado.pistas.filter((p) => !p.retorno).map((p) =>
+            `<option value="${p.indice}"${plugin.lateral === p.indice ? ' selected' : ''}>◁ ${esc(p.nombre)}</option>`).join('')}
+        </select>` : '';
+
     return `
       <div class="dispositivo${plugin.activo ? ' activo' : ' apagado'}" data-indice="${plugin.indice}" data-tipo="${esc(plugin.tipo)}">
         <div class="cabeza">
           <button class="led" title="${plugin.activo ? 'Apagar' : 'Encender'}"></button>
           <span class="nombre">${esc(plugin.nombre)}</span>
+          ${lateral}
           <button class="presets" title="Presets">▾</button>
           <button class="cerrar" title="Quitar">${ICO.x}</button>
         </div>
@@ -183,6 +191,10 @@ export function pintarTira() {
         });
       });
       evento.stopPropagation();
+    });
+
+    tarjeta.querySelector('.lateral')?.addEventListener('change', (evento) => {
+      acciones.alLateral(indicePista, indice, Number(evento.target.value));
     });
 
     for (const mando of tarjeta.querySelectorAll('input[data-parametro]')) {

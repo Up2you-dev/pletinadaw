@@ -313,7 +313,7 @@ juce::var Motor::listarPistas()
     pon (bucleVar, "fin", rango.getEnd().inSeconds());
     pon (r, "bucle", bucleVar);
 
-    auto describirCadena = [] (const juce::Array<te::Plugin*>& plugins)
+    auto describirCadena = [this] (const juce::Array<te::Plugin*>& plugins)
     {
         juce::Array<juce::var> lista;
         int i = 0;
@@ -325,6 +325,25 @@ juce::var Motor::listarPistas()
             pon (d, "nombre", p->getName());
             pon (d, "activo", p->isEnabled());
             pon (d, "parametros", describirParametros (*p));
+
+            // La entrada lateral, si el plugin la tiene: la pista de origen o -1.
+            if (p->canSidechain())
+            {
+                pon (d, "admiteLateral", true);
+                int fuenteLateral = -1;
+                const auto idFuente = p->getSidechainSourceID();
+                if (idFuente.isValid())
+                {
+                    int j = 0;
+                    for (auto t : te::getAudioTracks (*edit))
+                    {
+                        if (t->itemID == idFuente) { fuenteLateral = j; break; }
+                        ++j;
+                    }
+                }
+                pon (d, "lateral", fuenteLateral);
+            }
+
             lista.add (d);
         }
         return juce::var (lista);
@@ -605,6 +624,58 @@ juce::var Motor::listaVst() const
     auto r = objeto();
     pon (r, "plugins", lista);
     return r;
+}
+
+/* ================================================================ previa */
+
+juce::var Motor::tocarPrevia (const juce::String& ruta)
+{
+    const juce::File archivo (ruta);
+    if (! archivo.existsAsFile())
+        throw std::runtime_error ("no existe el archivo: " + ruta.toStdString());
+
+    te::AudioFile audio (engine, archivo);
+    if (! audio.isValid())
+        throw std::runtime_error ("formato de audio no reconocido");
+
+    if (editPrevia == nullptr)
+    {
+        auto carpeta = engine.getTemporaryFileManager().getTempDirectory();
+        editPrevia = te::createEmptyEdit (engine, carpeta.getChildFile ("previa.tracktionedit"));
+        editPrevia->ensureNumberOfAudioTracks (1);
+        if (auto volumen = editPrevia->getMasterVolumePlugin())
+            volumen->setVolumeDb (-3.0f);
+    }
+
+    auto pistas = te::getAudioTracks (*editPrevia);
+    if (pistas.isEmpty())
+        throw std::runtime_error ("la previa no tiene pista");
+
+    auto& transporte = editPrevia->getTransport();
+    transporte.stop (false, false);
+
+    for (auto* clipViejo : pistas[0]->getClips())
+        clipViejo->removeFromParent();
+
+    if (pistas[0]->insertWaveClip (archivo.getFileNameWithoutExtension(), archivo,
+                                   { { te::TimePosition(), te::TimePosition::fromSeconds (audio.getLength()) }, {} },
+                                   false) == nullptr)
+        throw std::runtime_error ("no se pudo preparar la audición");
+
+    transporte.setPosition (te::TimePosition());
+    transporte.ensureContextAllocated();
+    transporte.play (false);
+
+    auto r = objeto();
+    pon (r, "duracion", audio.getLength());
+    return r;
+}
+
+juce::var Motor::pararPrevia()
+{
+    if (editPrevia != nullptr)
+        editPrevia->getTransport().stop (false, false);
+    return juce::var (true);
 }
 
 /* ================================================================ pistas */
@@ -1289,6 +1360,36 @@ juce::var Motor::parametroPlugin (int indicePista, int indice, const juce::Strin
     }
 
     throw std::runtime_error ("no existe el parámetro: " + parametro.toStdString());
+}
+
+juce::var Motor::lateralPlugin (int indicePista, int indice, int fuente)
+{
+    auto usuario = cadenaUsuario (indicePista);
+    if (indice < 0 || indice >= usuario.size())
+        throw std::runtime_error ("no existe el plugin");
+
+    auto* plugin = usuario[indice];
+    if (! plugin->canSidechain())
+        throw std::runtime_error ("este plugin no tiene entrada lateral");
+
+    edit->getUndoManager().beginNewTransaction ("entrada lateral");
+
+    if (fuente < 0)
+    {
+        plugin->setSidechainSourceID ({});
+    }
+    else
+    {
+        auto* origen = pista (fuente);
+        if (origen == nullptr)
+            throw std::runtime_error ("no existe la pista de origen");
+        plugin->setSidechainSourceID (origen->itemID);
+        if (plugin->getNumWires() == 0)
+            plugin->guessSidechainRouting();
+    }
+
+    emitirModelo();
+    return listarPistas();
 }
 
 juce::var Motor::activarPlugin (int indicePista, int indice, bool activo)
@@ -2144,6 +2245,52 @@ void Motor::pararBomba()
 
 /* ===================================================== humo de la suite */
 
+namespace
+{
+    // Renders dorados de la suite: el RMS (canal izquierdo, dB) del render de
+    // referencia de cada efecto con sus valores de fábrica, medido el día que
+    // se dio por bueno. La tolerancia es generosa donde hay ruido o azar
+    // (dither, cinta) y prieta donde el DSP es determinista.
+    struct RenderDorado { const char* tipo; float rmsDb; float tolerancia; };
+    constexpr RenderDorado RENDERS_DORADOS[] = {
+        { "utilidad", -20.42f, 0.5f },
+        { "compresor", -22.40f, 0.5f },
+        { "techo", -20.43f, 0.5f },
+        { "eqocho", -20.42f, 0.5f },
+        { "medidor", -20.42f, 0.5f },
+        { "placa", -22.97f, 0.9f },
+        { "delay", -16.57f, 0.9f },
+        { "puerta", -20.43f, 0.5f },
+        { "multibanda", -20.43f, 0.5f },
+        { "anchura", -21.16f, 0.5f },
+        { "chispa", -20.46f, 0.9f },
+        { "oxido", -18.47f, 0.9f },
+        { "dither", -20.42f, 0.9f },
+        { "oscilador", -24.01f, 0.5f },
+        { "sala", -22.95f, 0.9f },
+        { "pegamento", -23.24f, 0.5f },
+        { "deeser", -20.42f, 0.5f },
+        { "eqdinamico", -20.42f, 0.5f },
+        { "balancin", -20.42f, 0.5f },
+        { "convolucion", -23.70f, 0.9f },
+        { "valvulas", -20.29f, 0.5f },
+        { "consola", -20.42f, 0.5f },
+        { "remache", -17.79f, 0.5f },
+        { "opto", -16.42f, 0.5f },
+        { "lampara", -18.85f, 0.5f },
+        { "eco", -23.46f, 0.9f },
+        { "muelle", -23.59f, 0.9f },
+        { "espejismo", -24.64f, 0.9f },
+        { "multitap", -24.16f, 0.9f },
+        { "coro", -23.11f, 0.9f },
+        { "tremolo", -23.13f, 0.5f },
+        { "triodo", -17.43f, 0.5f },
+        { "sumadora", -19.42f, 0.5f },
+        { "machacadora", -20.43f, 0.5f },
+        { "peine", -20.42f, 0.5f },
+    };
+}
+
 int Motor::pruebaEfectos()
 {
     auto carpeta = engine.getTemporaryFileManager().getTempDirectory();
@@ -2189,7 +2336,7 @@ int Motor::pruebaEfectos()
         const auto salida = carpeta.getChildFile ("humo-" + juce::String (tipo) + ".wav");
         exportar (salida.getFullPathName());
 
-        float pico = -1.0f;
+        float pico = -1.0f, rmsDb = -100.0f;
         bool finito = true;
         {
             std::unique_ptr<juce::AudioFormatReader> lector (formatos().createReaderFor (salida));
@@ -2199,6 +2346,7 @@ int Motor::pruebaEfectos()
                                             (int) juce::jmin ((juce::int64) 88200, lector->lengthInSamples));
                 lector->read (&b, 0, b.getNumSamples(), 0, true, true);
                 pico = b.getMagnitude (0, b.getNumSamples());
+                rmsDb = juce::Decibels::gainToDecibels (b.getRMSLevel (0, 0, b.getNumSamples()), -100.0f);
                 for (int c = 0; c < b.getNumChannels() && finito; ++c)
                     for (int i = 0; i < b.getNumSamples(); ++i)
                         if (! std::isfinite (b.getSample (c, i))) { finito = false; break; }
@@ -2208,9 +2356,28 @@ int Motor::pruebaEfectos()
         // Los instrumentos callan sin MIDI: solo se les exige no romper nada.
         const bool instrumento = juce::String (tipo) == "bruma" || juce::String (tipo) == "cinta"
                               || juce::String (tipo) == "pads";
-        const bool bien = finito && pico < 4.0f && (instrumento || pico > 0.005f);
+        bool bien = finito && pico < 4.0f && (instrumento || pico > 0.005f);
 
-        std::cerr << (bien ? "  ok    " : "  MAL   ") << tipo << "  pico " << pico << "\n";
+        // El render dorado: el RMS del render tiene que caer donde cayó el día
+        // que se dio por bueno. Un cambio de sonido no pasa desapercibido: si
+        // es deliberado, esta tabla se actualiza en el mismo commit y en paz.
+        juce::String dorado = "sin dorado";
+        for (const auto& d : RENDERS_DORADOS)
+            if (juce::String (tipo) == d.tipo)
+            {
+                const float delta = rmsDb - d.rmsDb;
+                dorado = "delta " + juce::String (delta, 2) + " dB";
+                if (std::abs (delta) > d.tolerancia)
+                {
+                    dorado += " FUERA (esperado " + juce::String (d.rmsDb, 2)
+                            + " +-" + juce::String (d.tolerancia, 2) + ")";
+                    bien = false;
+                }
+                break;
+            }
+
+        std::cerr << (bien ? "  ok    " : "  MAL   ") << tipo << "  pico " << pico
+                  << "  rms " << juce::String (rmsDb, 2) << " dB  [" << dorado << "]\n";
         if (! bien) ++fallos;
         adoptarEdit (nullptr, {});
     }
@@ -2577,6 +2744,20 @@ int Motor::autoprueba()
                 notasTrasGrabar += (int) c["notas"].size();
     }
 
+    // La audición previa: con el transporte del proyecto PARADO, el archivo
+    // suena por su edit aparte; al pararla, el silencio vuelve.
+    picoIzq.store (0.0f);
+    picoDer.store (0.0f);
+    tocarPrevia (wav.getFullPathName());
+    float picoPrevia = 0.0f;
+    for (int esperado = 0; esperado < 5000 && picoPrevia < 0.03f; esperado += 100)
+    {
+        pausa (100);
+        picoPrevia = juce::jmax (picoPrevia, picoIzq.load(), picoDer.load());
+    }
+    pararPrevia();
+    pausa (200);
+
     // Session View: dos escenas, el clip warpeado a la primera ranura, y su
     // lanzamiento (sin cuantizar, que el reloj de la prueba no espera) tiene
     // que dejar la ranura en "tocando" con el transporte en marcha.
@@ -2666,8 +2847,9 @@ int Motor::autoprueba()
     const bool midiSuena = notasReabiertas == 3 && pluginsPistaMidi == 1 && picoMidi > 0.03f;
     const bool midiGraba = notasTrasGrabar > notasReabiertas;
     const bool sesion = estadoRanura == "tocando";
+    const bool previa = picoPrevia > 0.03f;
     const bool ok = avanza && suena && deshace && renderiza && persiste && automatiza && normaliza && warpea
-                 && graba && midiSuena && midiGraba && sesion && vst;
+                 && graba && midiSuena && midiGraba && sesion && previa && vst;
 
     auto r = objeto();
     pon (r, "ok", ok);
@@ -2690,6 +2872,7 @@ int Motor::autoprueba()
     pon (r, "picoMidi", picoMidi);
     pon (r, "notasTrasGrabar", notasTrasGrabar);
     pon (r, "ranuraLanzada", estadoRanura);
+    pon (r, "picoPrevia", picoPrevia);
     pon (r, "vst", vstDetalle);
     emitir (protocolo::evento ("prueba", r));
 
