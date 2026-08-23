@@ -1,0 +1,212 @@
+/* ============================================================
+   Pletina DAW · hoja de estilos
+   Mismo lenguaje visual que el reproductor —tokens, tipografías,
+   radios— con el tema oscuro como casa: aquí se viene a mirar
+   ondas y medidores durante horas. El claro existe y se elige.
+   ============================================================ */
+
+:root{
+  --bg:#101018; --panel:#171722; --panel-2:#20202C; --panel-3:#2A2A39;
+  --line:#2E2E3E; --line-soft:#242430;
+  --text:#ECEAF4; --muted:#A5A2B8; --muted-2:#7B7891;
+  --accent:#8890FF; --accent-hover:#A6ABFF; --accent-ink:#0D0D15; --accent-soft:#252748;
+  --signal:#F0B357; --signal-soft:#2C2317;
+  --danger:#FF8272; --danger-soft:#39201E;
+  --exito:#7FD4A1;
+  --shadow:0 1px 2px rgba(0,0,0,.5), 0 12px 30px -16px rgba(0,0,0,.9);
+  --r:10px; --r-sm:7px;
+  --ff-display:'Archivo','Helvetica Neue',Arial,sans-serif;
+  --ff-body:'Karla',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --ff-mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Consolas,monospace;
+  --rail-w:248px;
+  --tira-h:118px;
+  --mesa-h:238px;
+}
+:root[data-theme="light"]{
+  --bg:#F2F1F7; --panel:#FBFAFE; --panel-2:#E9E7F1; --panel-3:#E0DEEB;
+  --line:#D9D6E5; --line-soft:#E6E3EF;
+  --text:#191823; --muted:#66637E; --muted-2:#8C8AA3;
+  --accent:#3A3FD4; --accent-hover:#2C31B8; --accent-ink:#FFFFFF; --accent-soft:#E4E4FA;
+  --signal:#9C5A0C; --signal-soft:#F6EAD6;
+  --danger:#B4342A; --danger-soft:#F8E4E2;
+  --exito:#256E46;
+  --shadow:0 1px 2px rgba(25,24,35,.06), 0 10px 30px -14px rgba(25,24,35,.28);
+}
+
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+html,body{height:100%; overflow:hidden}
+body{
+  margin:0; background:var(--bg); color:var(--text);
+  font-family:var(--ff-body); font-size:14.5px; line-height:1.45;
+  -webkit-font-smoothing:antialiased; user-select:none; cursor:default;
+}
+button,input,select{font:inherit; color:inherit}
+:focus-visible{outline:2px solid var(--accent); outline-offset:2px; border-radius:5px}
+::selection{background:var(--accent-soft); color:var(--text)}
+svg{display:block; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round}
+::-webkit-scrollbar{width:11px; height:11px}
+::-webkit-scrollbar-thumb{background:var(--panel-3); border-radius:99px; border:3px solid transparent; background-clip:content-box}
+::-webkit-scrollbar-thumb:hover{background:var(--muted-2); background-clip:content-box}
+::-webkit-scrollbar-track{background:transparent}
+
+/* ---------- estructura ---------- */
+.app{
+  display:grid;
+  grid-template-columns:var(--rail-w) minmax(0,1fr);
+  grid-template-rows:46px minmax(0,1fr) var(--tira-h);
+  grid-template-areas:"top top" "rail stage" "tira tira";
+  height:100vh;
+}
+.app.sin-rail{--rail-w:0px}
+.app.sin-rail .rail{display:none}
+
+.topbar{
+  grid-area:top; display:flex; align-items:center; gap:14px; padding:0 14px;
+  background:var(--panel); border-bottom:1px solid var(--line);
+}
+[data-platform="darwin"] .topbar{padding-left:84px}
+[data-platform="win32"] .topbar{padding-right:150px}
+[data-platform="darwin"] .topbar,
+[data-platform="win32"] .topbar{-webkit-app-region:drag}
+.topbar button,.topbar input{-webkit-app-region:no-drag}
+
+.rail{grid-area:rail; overflow-y:auto; padding:12px 10px 20px; border-right:1px solid var(--line); background:var(--panel)}
+.stage{grid-area:stage; display:grid; grid-template-rows:minmax(0,1fr) auto; min-width:0}
+.tira{grid-area:tira; background:var(--panel); border-top:1px solid var(--line); display:flex; align-items:center; gap:10px; padding:0 14px; overflow-x:auto}
+
+/* ---------- marca ---------- */
+.brand{display:flex; align-items:center; gap:9px; min-width:0}
+.brand h1{font-family:var(--ff-display); font-weight:700; font-size:18px; letter-spacing:-.04em; margin:0; white-space:nowrap}
+.brand h1 span{color:var(--accent); font-weight:600}
+.brand .logo{width:22px; height:22px; border-radius:6px; flex:none}
+
+/* ---------- controles ---------- */
+.btn{
+  display:inline-flex; align-items:center; justify-content:center; gap:7px; height:32px; padding:0 11px;
+  border:1px solid var(--line); background:var(--panel-2); border-radius:var(--r-sm);
+  font-weight:600; font-size:13px; cursor:pointer; white-space:nowrap;
+  transition:background .15s, border-color .15s, color .15s;
+}
+.btn:hover{background:var(--panel-3); border-color:var(--muted-2)}
+.btn svg{width:16px; height:16px}
+.btn-icono{width:34px; padding:0}
+.btn-primary{background:var(--accent); border-color:var(--accent); color:var(--accent-ink)}
+.btn-primary:hover{background:var(--accent-hover); border-color:var(--accent-hover)}
+.btn[aria-pressed="true"]{background:var(--accent-soft); border-color:var(--accent); color:var(--accent)}
+
+/* ---------- transporte ---------- */
+.transporte{display:flex; align-items:center; gap:8px; margin-left:6px}
+.reloj{
+  display:flex; align-items:baseline; gap:10px; padding:4px 12px;
+  background:var(--bg); border:1px solid var(--line); border-radius:var(--r-sm);
+  font-family:var(--ff-mono); font-size:15px; font-weight:500; letter-spacing:.02em;
+}
+.reloj .musical{color:var(--signal); min-width:5.2ch; text-align:right}
+.reloj .segundero{color:var(--text); min-width:6.5ch; text-align:right}
+.campo-bpm{display:flex; align-items:center; gap:5px; color:var(--muted); font-size:12px}
+.campo-bpm input{
+  width:4.6ch; background:var(--bg); border:1px solid var(--line); border-radius:var(--r-sm);
+  padding:3px 6px; font-family:var(--ff-mono); font-size:14px; text-align:right; color:var(--text);
+}
+.campo-bpm .compas{font-family:var(--ff-mono); font-size:14px; color:var(--text); padding:3px 2px}
+
+/* chip de estado del motor: la interfaz no miente */
+.chip-motor{
+  margin-left:auto; display:inline-flex; align-items:center; gap:7px; padding:4px 10px;
+  border-radius:99px; border:1px solid var(--line); background:var(--panel-2);
+  font-size:12px; color:var(--muted); white-space:nowrap;
+}
+.chip-motor .punto{width:8px; height:8px; border-radius:99px; background:var(--muted-2); flex:none}
+.chip-motor.conectado .punto{background:var(--exito)}
+.chip-motor.arrancando .punto{background:var(--signal)}
+.chip-motor.caido .punto{background:var(--danger)}
+
+/* ---------- rail ---------- */
+.rail h2{
+  font-family:var(--ff-display); font-size:11px; letter-spacing:.09em; text-transform:uppercase;
+  color:var(--muted-2); margin:16px 8px 6px; font-weight:700;
+}
+.rail h2:first-child{margin-top:2px}
+.rail .entrada{
+  display:flex; align-items:center; gap:8px; padding:5px 8px; border-radius:var(--r-sm);
+  color:var(--text); font-size:13px; cursor:default;
+}
+.rail .entrada svg{width:15px; height:15px; flex:none; color:var(--muted-2)}
+.rail .entrada span:first-of-type{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.rail .entrada:hover{background:var(--panel-2)}
+.rail .entrada .detalle{color:var(--muted-2); font-size:11.5px; margin-left:auto; text-align:right}
+.rail .entrada.futura{color:var(--muted)}
+.fase{
+  flex:none; font-family:var(--ff-mono); font-size:10px; padding:1px 5px; border-radius:4px;
+  background:var(--panel-3); color:var(--muted); border:1px solid var(--line);
+}
+.fase.f0{background:var(--accent-soft); color:var(--accent); border-color:transparent}
+
+/* ---------- arrangement ---------- */
+.lienzo-wrap{position:relative; min-height:0; background:var(--bg)}
+.lienzo-wrap canvas{position:absolute; inset:0; width:100%; height:100%; display:block}
+
+/* ---------- mesa ---------- */
+.mesa{
+  height:var(--mesa-h); border-top:1px solid var(--line); background:var(--panel);
+  display:flex; gap:10px; padding:10px 14px; overflow-x:auto;
+}
+.app.sin-mesa .mesa{display:none}
+.canal{
+  width:86px; flex:none; display:grid; grid-template-rows:auto minmax(0,1fr) auto auto;
+  gap:6px; padding:8px; background:var(--panel-2); border:1px solid var(--line); border-radius:var(--r);
+}
+.canal.maestro{background:var(--accent-soft); border-color:var(--accent)}
+.canal .nombre{font-size:12px; font-weight:700; text-align:center; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.canal .cinta-color{height:3px; border-radius:2px}
+.cuerpo-fader{display:flex; gap:8px; justify-content:center; min-height:0}
+.vu{width:10px; border-radius:3px; background:var(--bg); border:1px solid var(--line); position:relative; overflow:hidden}
+.vu i{position:absolute; left:0; right:0; bottom:0; height:0%;
+  background:linear-gradient(to top, var(--exito) 65%, var(--signal) 85%, var(--danger));}
+.fader{appearance:none; writing-mode:vertical-lr; direction:rtl; width:26px; background:transparent; margin:0}
+.fader::-webkit-slider-runnable-track{background:var(--bg); border:1px solid var(--line); border-radius:4px; width:6px}
+.fader::-webkit-slider-thumb{
+  appearance:none; width:22px; height:12px; border-radius:4px; background:var(--text);
+  border:1px solid var(--line); box-shadow:var(--shadow); margin-left:-9px;
+}
+.canal .db{font-family:var(--ff-mono); font-size:11px; color:var(--muted); text-align:center}
+.canal .botones{display:flex; gap:4px; justify-content:center}
+.canal .botones button{
+  width:24px; height:22px; font-size:10.5px; font-weight:700; border-radius:5px;
+  border:1px solid var(--line); background:var(--panel); cursor:pointer; color:var(--muted);
+}
+.canal .botones button[aria-pressed="true"].m{background:var(--danger-soft); color:var(--danger); border-color:var(--danger)}
+.canal .botones button[aria-pressed="true"].s{background:var(--signal-soft); color:var(--signal); border-color:var(--signal)}
+
+/* ---------- tira de dispositivos ---------- */
+.tira .titulo{
+  writing-mode:vertical-rl; rotate:180deg; font-family:var(--ff-display); font-size:10px;
+  letter-spacing:.12em; text-transform:uppercase; color:var(--muted-2); flex:none;
+}
+.dispositivo{
+  flex:none; width:150px; height:86px; border-radius:var(--r); border:1px solid var(--line);
+  background:var(--panel-2); padding:8px 10px; display:grid; grid-template-rows:auto auto 1fr;
+  gap:2px;
+}
+.dispositivo.futuro{opacity:.62}
+.dispositivo .nombre{font-family:var(--ff-display); font-weight:700; font-size:13px}
+.dispositivo .detalle{font-size:11px; color:var(--muted)}
+.dispositivo .pie{align-self:end; display:flex; justify-content:space-between; align-items:center}
+.dispositivo .led{width:7px; height:7px; border-radius:99px; background:var(--muted-2)}
+.dispositivo.activo .led{background:var(--exito)}
+.tira .mas{
+  flex:none; width:44px; height:86px; border-radius:var(--r); border:1px dashed var(--line);
+  display:grid; place-items:center; color:var(--muted-2); background:transparent; cursor:pointer;
+}
+.tira .mas:hover{color:var(--accent); border-color:var(--accent)}
+
+/* ---------- varios ---------- */
+.avisos{position:fixed; right:14px; bottom:calc(var(--tira-h) + 14px); display:grid; gap:8px; z-index:40}
+.aviso{
+  background:var(--panel-2); border:1px solid var(--line); border-radius:var(--r-sm);
+  box-shadow:var(--shadow); padding:9px 13px; font-size:13px; max-width:340px;
+}
+@media (prefers-reduced-motion: reduce){
+  *{scroll-behavior:auto; transition:none !important; animation:none !important}
+}

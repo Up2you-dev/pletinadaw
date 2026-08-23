@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src 'self'">
+  <title>Pletina DAW</title>
+  <link rel="stylesheet" href="assets/fonts/fonts.css">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app" id="app">
+    <header class="topbar" id="topbar">
+      <div class="brand">
+        <img class="logo" src="logo.svg" alt="">
+        <h1>Pletina <span>DAW</span></h1>
+      </div>
+      <div class="transporte" id="transporte"></div>
+      <div class="chip-motor" id="chip-motor"><span class="punto"></span><span class="texto">motor…</span></div>
+    </header>
+
+    <aside class="rail" id="rail"></aside>
+
+    <main class="stage">
+      <div class="lienzo-wrap" id="lienzo-wrap">
+        <canvas id="arreglo"></canvas>
+      </div>
+      <section class="mesa" id="mesa" aria-label="Mesa de mezclas"></section>
+    </main>
+
+    <footer class="tira" id="tira" aria-label="Cadena de dispositivos"></footer>
+  </div>
+
+  <div class="avisos" id="avisos"></div>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
