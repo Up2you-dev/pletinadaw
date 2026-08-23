@@ -17,6 +17,7 @@
 #include <tracktion_engine/timestretch/tracktion_TempoDetect.h>
 
 #include <cmath>
+#include <cstdlib>
 
 namespace
 {
@@ -64,6 +65,10 @@ Motor::Motor (Opciones o, std::function<void (const juce::String&)> e)
     : opciones (o), emitir (std::move (e))
 {
     registrarEfectos (engine);
+
+    // El catálogo VST3 del último escaneo, si lo hay: escanear es caro.
+    if (auto xml = engine.getPropertyStorage().getXmlProperty (te::SettingID::knownPluginList))
+        engine.getPluginManager().knownPluginList.recreateFromXml (*xml);
 
     if (opciones.sinAudio)
     {
@@ -297,6 +302,8 @@ juce::var Motor::listarPistas()
 
     pon (r, "bpm", edit->tempoSequence.getTempo (0)->getBpm());
     pon (r, "metronomo", (bool) edit->clickTrackEnabled);
+    pon (r, "escenas", edit->getSceneList().getNumScenes());
+    pon (r, "cuantizacionLanzamiento", te::getName (edit->getLaunchQuantisation().type));
 
     auto& transporte = edit->getTransport();
     auto bucleVar = objeto();
@@ -408,6 +415,31 @@ juce::var Motor::listarPistas()
                 armada = armada || instancia->isRecordingEnabled (pista->itemID);
         pon (p, "armada", armada);
 
+        // Las ranuras de la Session View, si hay escenas creadas.
+        juce::Array<juce::var> ranuras;
+        for (auto* ranura : pista->getClipSlotList().getClipSlots())
+        {
+            auto s = objeto();
+            if (auto* c = ranura->getClip())
+            {
+                pon (s, "clip", c->itemID.toString());
+                pon (s, "nombre", c->getName());
+                pon (s, "tipo", dynamic_cast<te::MidiClip*> (c) != nullptr ? "midi" : "audio");
+
+                juce::String lanzamiento = "parado";
+                if (auto asa = c->getLaunchHandle())
+                {
+                    if (asa->getQueuedStatus().has_value())
+                        lanzamiento = "encolado";
+                    else if (asa->getPlayingStatus() == te::LaunchHandle::PlayState::playing)
+                        lanzamiento = "tocando";
+                }
+                pon (s, "estado", lanzamiento);
+            }
+            ranuras.add (s);
+        }
+        pon (p, "ranuras", ranuras);
+
         // La curva de volumen, para el carril de automatización de la interfaz.
         juce::Array<juce::var> curvaVolumen;
         if (auto* volumen = pista->getVolumePlugin())
@@ -443,6 +475,136 @@ void Motor::emitirModelo()
 {
     refrescarMedidoresDePista();
     emitir (protocolo::evento ("modelo", listarPistas()));
+}
+
+/* ================================================================== VST3 */
+
+juce::StringArray Motor::rutasVst() const
+{
+    auto& almacen = engine.getPropertyStorage();
+    juce::StringArray rutas;
+    rutas.addTokens (almacen.getPropertyItem (te::SettingID::knownPluginList, "carpetasVst3", "").toString(), ";", {});
+    rutas.removeEmptyStrings();
+
+    if (rutas.isEmpty())
+    {
+        // Las carpetas estándar del sistema, que es donde vive casi todo.
+        juce::VST3PluginFormat formato;
+        for (int i = 0; i < formato.getDefaultLocationsToSearch().getNumPaths(); ++i)
+            rutas.add (formato.getDefaultLocationsToSearch()[i].getFullPathName());
+    }
+    return rutas;
+}
+
+void Motor::guardarCatalogoVst()
+{
+    if (auto xml = engine.getPluginManager().knownPluginList.createXml())
+        engine.getPropertyStorage().setXmlProperty (te::SettingID::knownPluginList, *xml);
+}
+
+juce::var Motor::carpetasVst (const juce::var& params)
+{
+    if (params.hasProperty ("rutas"))
+    {
+        juce::StringArray rutas;
+        if (auto* lista = params["rutas"].getArray())
+            for (const auto& r : *lista)
+                rutas.add (r.toString());
+        engine.getPropertyStorage().setPropertyItem (te::SettingID::knownPluginList, "carpetasVst3", rutas.joinIntoString (";"));
+    }
+
+    juce::Array<juce::var> lista;
+    for (const auto& r : rutasVst()) lista.add (r);
+    auto resultado = objeto();
+    pon (resultado, "rutas", lista);
+    return resultado;
+}
+
+juce::var Motor::escanearVst()
+{
+    juce::VST3PluginFormat formato;
+    auto& conocidos = engine.getPluginManager().knownPluginList;
+
+    juce::FileSearchPath busqueda;
+    for (const auto& r : rutasVst()) busqueda.add (juce::File (r));
+
+    // Enumerar candidatos es barato y seguro; CARGARLOS no: cada uno se abre
+    // en un proceso hijo (este mismo binario) y el que reviente o se cuelgue
+    // va a la lista negra sin llevarse el motor por delante.
+    const auto candidatos = formato.searchPathsForPlugins (busqueda, true, true);
+    const auto binario = juce::File::getSpecialLocation (juce::File::currentExecutableFile);
+
+    int nuevos = 0, vetados = 0;
+    for (const auto& candidato : candidatos)
+    {
+        if (conocidos.getBlacklistedFiles().contains (candidato))
+            { ++vetados; continue; }
+
+        bool yaConocido = false;
+        for (const auto& tipo : conocidos.getTypes())
+            if (tipo.fileOrIdentifier == candidato)
+                yaConocido = true;
+        if (yaConocido) continue;
+
+        juce::ChildProcess hijo;
+        juce::StringArray orden { binario.getFullPathName(), "--escanear-vst3", candidato };
+        bool bien = hijo.start (orden, juce::ChildProcess::wantStdOut);
+        juce::String salida;
+        if (bien)
+        {
+            salida = hijo.readAllProcessOutput();          // espera al hijo
+            bien = hijo.waitForProcessToFinish (20000) && hijo.getExitCode() == 0;
+        }
+
+        if (! bien)
+        {
+            conocidos.addToBlacklist (candidato);
+            ++vetados;
+            continue;
+        }
+
+        juce::StringArray lineas;
+        lineas.addLines (salida);
+        for (const auto& linea : lineas)
+        {
+            if (linea.trim().isEmpty()) continue;
+            if (auto xml = juce::parseXML (linea))
+            {
+                juce::PluginDescription descripcion;
+                if (descripcion.loadFromXml (*xml))
+                {
+                    conocidos.addType (descripcion);
+                    ++nuevos;
+                }
+            }
+        }
+    }
+
+    guardarCatalogoVst();
+
+    auto r = objeto();
+    pon (r, "candidatos", (int) candidatos.size());
+    pon (r, "nuevos", nuevos);
+    pon (r, "vetados", vetados);
+    pon (r, "total", conocidos.getNumTypes());
+    return r;
+}
+
+juce::var Motor::listaVst() const
+{
+    juce::Array<juce::var> lista;
+    for (const auto& tipo : engine.getPluginManager().knownPluginList.getTypes())
+    {
+        auto d = objeto();
+        pon (d, "id", tipo.createIdentifierString());
+        pon (d, "nombre", tipo.name);
+        pon (d, "fabricante", tipo.manufacturerName);
+        pon (d, "instrumento", tipo.isInstrument);
+        lista.add (d);
+    }
+    auto r = objeto();
+    pon (r, "plugins", lista);
+    return r;
 }
 
 /* ================================================================ pistas */
@@ -725,6 +887,125 @@ juce::var Motor::cuantizarClipMidi (const juce::String& id, const juce::String& 
     return juce::var (true);
 }
 
+/* ================================================================ sesión */
+
+juce::var Motor::escenasSesion (int numero)
+{
+    asegurarEdit();
+    numero = juce::jlimit (0, 64, numero);
+
+    edit->getUndoManager().beginNewTransaction ("escenas");
+    edit->getSceneList().ensureNumberOfScenes (numero);
+    for (auto pista : te::getAudioTracks (*edit))
+        pista->getClipSlotList().ensureNumberOfSlots (numero);
+
+    emitirModelo();
+    return listarPistas();
+}
+
+juce::var Motor::ponerEnSesion (int indicePista, int escena, const juce::String& desdeClip)
+{
+    asegurarEdit();
+    auto* objetivo = pista (indicePista);
+    if (objetivo == nullptr)
+        throw std::runtime_error ("no existe la pista");
+
+    auto* origen = clip (desdeClip);
+    if (origen == nullptr)
+        throw std::runtime_error ("no existe el clip de origen");
+
+    auto ranuras = objetivo->getClipSlotList().getClipSlots();
+    if (escena < 0 || escena >= ranuras.size())
+        throw std::runtime_error ("no existe esa escena: pide más con sesion.escenas");
+    auto* ranura = ranuras[escena];
+
+    edit->getUndoManager().beginNewTransaction ("poner en sesión");
+
+    if (auto* anterior = ranura->getClip())
+        anterior->removeFromParent();
+
+    // Copia del clip del arrangement, con IDs nuevos y arrancando en 0:
+    // el lanzamiento manda desde dónde suena, no el tiempo del arreglo.
+    auto copia = origen->state.createCopy();
+    te::EditItemID::remapIDs (copia, nullptr, *edit);
+    copia.setProperty (te::IDs::start, 0.0, nullptr);
+    copia.setProperty (te::IDs::offset, origen->getPosition().getOffset().inSeconds(), nullptr);
+
+    auto* nuevo = te::insertClipWithState (*ranura, copia);
+    if (nuevo == nullptr)
+        throw std::runtime_error ("no se pudo poner el clip en la escena");
+
+    emitirModelo();
+    auto r = objeto();
+    pon (r, "id", nuevo->itemID.toString());
+    return r;
+}
+
+juce::var Motor::lanzarSesion (int indicePista, int escena)
+{
+    asegurarEdit();
+
+    auto lanzar = [this, escena] (te::AudioTrack* objetivo)
+    {
+        auto ranuras = objetivo->getClipSlotList().getClipSlots();
+        if (escena >= 0 && escena < ranuras.size())
+            if (auto* c = ranuras[escena]->getClip())
+                if (auto asa = c->getLaunchHandle())
+                    asa->play ({});
+    };
+
+    if (indicePista < 0)
+        for (auto p : te::getAudioTracks (*edit)) lanzar (p);
+    else if (auto* objetivo = pista (indicePista))
+        lanzar (objetivo);
+    else
+        throw std::runtime_error ("no existe la pista");
+
+    // Lanzar arranca el transporte, como en cualquier sesión en directo.
+    auto& transporte = edit->getTransport();
+    if (! transporte.isPlaying())
+    {
+        transporte.ensureContextAllocated();
+        transporte.play (false);
+    }
+
+    return estadoTransporte();
+}
+
+juce::var Motor::pararSesion (int indicePista)
+{
+    asegurarEdit();
+
+    auto parar = [] (te::AudioTrack* objetivo)
+    {
+        for (auto* ranura : objetivo->getClipSlotList().getClipSlots())
+            if (auto* c = ranura->getClip())
+                if (auto asa = c->getLaunchHandle())
+                    asa->stop ({});
+    };
+
+    if (indicePista < 0)
+        for (auto p : te::getAudioTracks (*edit)) parar (p);
+    else if (auto* objetivo = pista (indicePista))
+        parar (objetivo);
+    else
+        throw std::runtime_error ("no existe la pista");
+
+    return juce::var (true);
+}
+
+juce::var Motor::cuantizacionSesion (const juce::String& nombre)
+{
+    asegurarEdit();
+    const auto tipo = te::launchQTypeFromName (nombre);
+    if (! tipo.has_value())
+        throw std::runtime_error ("cuantización de lanzamiento desconocida: " + nombre.toStdString());
+
+    edit->getLaunchQuantisation().type = *tipo;
+    emitirModelo();
+    return juce::var (true);
+}
+
 juce::var Motor::moverClip (const juce::String& id, double inicio, int indicePista)
 {
     auto* objetivo = clip (id);
@@ -922,10 +1203,26 @@ juce::var Motor::insertarPlugin (int indicePista, const juce::String& tipo, int 
 {
     asegurarEdit();
 
-    bool conocido = false;
-    for (auto t : TIPOS_SUITE) conocido = conocido || tipo == t;
-    if (! conocido)
-        throw std::runtime_error ("tipo de la suite desconocido: " + tipo.toStdString());
+    // "vst:<identificador>" inserta un plugin externo del catálogo escaneado;
+    // cualquier otro tipo tiene que ser de la suite propia.
+    juce::PluginDescription descripcionVst;
+    const bool esVst = tipo.startsWith ("vst:");
+    if (esVst)
+    {
+        bool encontrado = false;
+        for (const auto& candidato : engine.getPluginManager().knownPluginList.getTypes())
+            if (candidato.createIdentifierString() == tipo.fromFirstOccurrenceOf ("vst:", false, false))
+                { descripcionVst = candidato; encontrado = true; break; }
+        if (! encontrado)
+            throw std::runtime_error ("ese VST3 no está en el catálogo: escanea primero (vst.escanear)");
+    }
+    else
+    {
+        bool conocido = false;
+        for (auto t : TIPOS_SUITE) conocido = conocido || tipo == t;
+        if (! conocido)
+            throw std::runtime_error ("tipo de la suite desconocido: " + tipo.toStdString());
+    }
 
     auto* lista = cadena (indicePista);
     if (lista == nullptr)
@@ -933,9 +1230,15 @@ juce::var Motor::insertarPlugin (int indicePista, const juce::String& tipo, int 
 
     edit->getUndoManager().beginNewTransaction ("insertar " + tipo);
 
-    auto nuevo = edit->getPluginCache().createNewPlugin (tipo, {});
+    auto nuevo = esVst ? edit->getPluginCache().createNewPlugin (te::ExternalPlugin::xmlTypeName, descripcionVst)
+                       : edit->getPluginCache().createNewPlugin (tipo, {});
     if (nuevo == nullptr)
         throw std::runtime_error ("no se pudo crear el plugin");
+
+    if (esVst)
+        if (auto* externo = dynamic_cast<te::ExternalPlugin*> (nuevo.get()))
+            if (! externo->isEnabled() || externo->getAudioPluginInstance() == nullptr)
+                throw std::runtime_error ("el VST3 no ha cargado: " + descripcionVst.name.toStdString());
 
     // La cadena del usuario vive delante de los de serie (pre-fader): el
     // índice filtrado se traduce a la posición cruda correspondiente.
@@ -1700,6 +2003,33 @@ void Motor::timerCallback()
                 pon (datos, "espectro", bandasEspectro);
             }
 
+    // Los estados de lanzamiento cambian solos (en el límite de cuantización):
+    // viajan con los medidores para que la rejilla de sesión respire en vivo.
+    if (edit != nullptr && edit->getSceneList().getNumScenes() > 0)
+    {
+        juce::Array<juce::var> sesion;
+        for (auto pista : te::getAudioTracks (*edit))
+        {
+            juce::Array<juce::var> fila;
+            for (auto* ranura : pista->getClipSlotList().getClipSlots())
+            {
+                juce::String estadoRanura = "";
+                if (auto* c = ranura->getClip())
+                {
+                    estadoRanura = "parado";
+                    if (auto asa = c->getLaunchHandle())
+                    {
+                        if (asa->getQueuedStatus().has_value()) estadoRanura = "encolado";
+                        else if (asa->getPlayingStatus() == te::LaunchHandle::PlayState::playing) estadoRanura = "tocando";
+                    }
+                }
+                fila.add (estadoRanura);
+            }
+            sesion.add (juce::var (fila));
+        }
+        pon (datos, "sesion", juce::var (sesion));
+    }
+
     const bool reproduciendo = datos["reproduciendo"];
 
     if (reproduciendo || reproduciendoAntes)
@@ -2059,7 +2389,7 @@ int Motor::autoprueba()
     notaEntrada.store (62);
     armarPista (3, true, 0, true);
     grabar (objeto());
-    pausa (900);
+    pausa (1300);
     parar();
     notaEntrada.store (-1);
     pausa (300);
@@ -2073,6 +2403,23 @@ int Motor::autoprueba()
                 notasTrasGrabar += (int) c["notas"].size();
     }
 
+    // Session View: dos escenas, el clip warpeado a la primera ranura, y su
+    // lanzamiento (sin cuantizar, que el reloj de la prueba no espera) tiene
+    // que dejar la ranura en "tocando" con el transporte en marcha.
+    escenasSesion (2);
+    ponerEnSesion (0, 0, idClip);
+    cuantizacionSesion ("None");
+    lanzarSesion (0, 0);
+    pausa (700);
+    juce::String estadoRanura;
+    {
+        const auto m = listarPistas();
+        estadoRanura = m["pistas"][0]["ranuras"][0]["estado"].toString();
+    }
+    pararSesion (-1);
+    parar();
+    pausa (200);
+
     const bool avanza = segundos > 0.25;
     const bool suena = pico > 0.05f;
     const bool deshace = clipsTrasDeshacer == 3;
@@ -2085,11 +2432,68 @@ int Motor::autoprueba()
     const bool warpea = std::abs (duracionWarp - 0.4) < 0.02
                      && std::abs (transposicionVuelta - 5.0) < 0.01
                      && std::abs (bpmVuelta - 120.0) < 0.5;
+    // El hosting VST3, si el CI compiló el plugin de prueba: escanearlo con
+    // el proceso hijo, insertarlo (-6 dB exactos) y medir que el render baja
+    // justo a la mitad. Sin la variable, la comprobación se salta y se dice.
+    bool vst = true;
+    juce::String vstDetalle = "saltado (sin PLETINA_VST3_PRUEBA)";
+    if (const char* carpetaVst = std::getenv ("PLETINA_VST3_PRUEBA"))
+    {
+        auto peticion = objeto();
+        auto rutas = juce::var (juce::Array<juce::var>());
+        rutas.getArray()->add (juce::String::fromUTF8 (carpetaVst));
+        pon (peticion, "rutas", rutas);
+        carpetasVst (peticion);
+
+        const auto escaneo = escanearVst();
+        const auto catalogo = listaVst();
+        vst = (int) escaneo["total"] >= 1 && catalogo["plugins"].size() >= 1;
+        vstDetalle = "escaneados " + juce::String ((int) escaneo["total"]);
+
+        if (vst)
+        {
+            // Proyecto limpio: el seno de -6 dB solo, render con y sin el VST.
+            const auto proyectoVst = carpeta.getChildFile ("autoprueba-vst");
+            proyectoVst.deleteRecursively();
+            nuevoProyecto (proyectoVst.getFullPathName());
+            importarClip (0, wav.getFullPathName(), 0.0);
+            pausa (100);
+
+            const auto renderSeco = carpeta.getChildFile ("autoprueba-vst-seco.wav");
+            exportar (renderSeco.getFullPathName());
+            const auto renderVst = carpeta.getChildFile ("autoprueba-vst-con.wav");
+            insertarPlugin (0, "vst:" + catalogo["plugins"][0]["id"].toString(), 0);
+            pausa (200);
+
+            // Y que sobreviva al proyecto: guardar, reabrir y ENTONCES rendir.
+            guardarProyecto();
+            adoptarEdit (nullptr, {});
+            abrirProyecto (proyectoVst.getFullPathName());
+            pausa (200);
+            exportar (renderVst.getFullPathName());
+
+            auto pico = [this] (const juce::File& archivo)
+            {
+                std::unique_ptr<juce::AudioFormatReader> lector (formatos().createReaderFor (archivo));
+                if (lector == nullptr || lector->lengthInSamples == 0) return 0.0f;
+                juce::AudioBuffer<float> b ((int) lector->numChannels,
+                                            (int) juce::jmin ((juce::int64) 96000, lector->lengthInSamples));
+                lector->read (&b, 0, b.getNumSamples(), 0, true, true);
+                return b.getMagnitude (0, b.getNumSamples());
+            };
+
+            const float seco = pico (renderSeco), procesado = pico (renderVst);
+            vst = seco > 0.3f && std::abs (procesado - seco * 0.5f) < 0.03f;
+            vstDetalle = juce::String (seco, 3) + " -> " + juce::String (procesado, 3);
+        }
+    }
+
     const bool graba = duracionGrabada > 0.4 && picoGrabado > 0.15f;
     const bool midiSuena = notasReabiertas == 3 && pluginsPistaMidi == 1 && picoMidi > 0.03f;
     const bool midiGraba = notasTrasGrabar > notasReabiertas;
+    const bool sesion = estadoRanura == "tocando";
     const bool ok = avanza && suena && deshace && renderiza && persiste && automatiza && normaliza && warpea
-                 && graba && midiSuena && midiGraba;
+                 && graba && midiSuena && midiGraba && sesion && vst;
 
     auto r = objeto();
     pon (r, "ok", ok);
@@ -2108,8 +2512,11 @@ int Motor::autoprueba()
     pon (r, "duracionGrabada", duracionGrabada);
     pon (r, "picoGrabado", picoGrabado);
     pon (r, "notasReabiertas", notasReabiertas);
+    pon (r, "pluginsPistaMidi", pluginsPistaMidi);
     pon (r, "picoMidi", picoMidi);
     pon (r, "notasTrasGrabar", notasTrasGrabar);
+    pon (r, "ranuraLanzada", estadoRanura);
+    pon (r, "vst", vstDetalle);
     emitir (protocolo::evento ("prueba", r));
 
     return ok ? 0 : 1;

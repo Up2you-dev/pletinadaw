@@ -283,6 +283,55 @@ svg{display:block; fill:none; stroke:currentColor; stroke-width:1.7; stroke-line
 .piano-scroll{max-height:min(480px, 62vh); overflow:auto}
 .piano-scroll canvas{display:block}
 
+/* ---------- session view ---------- */
+.stage:has(.sesion:not([hidden])) .lienzo-wrap{display:none}
+.sesion{overflow:auto; min-height:0; background:var(--bg)}
+.sesion-caja{padding:14px; display:grid; gap:6px; min-width:min-content}
+.fila-escena{display:grid; grid-template-columns:64px repeat(auto-fit, minmax(120px, 150px)); gap:6px; align-items:stretch}
+.fila-escena.cabecera .esquina{
+  font-family:var(--ff-display); font-size:10px; letter-spacing:.12em; text-transform:uppercase;
+  color:var(--muted-2); align-self:end; padding:0 2px 4px;
+}
+.fila-escena .nombre-pista{
+  font-family:var(--ff-display); font-weight:700; font-size:12px; padding:6px 8px;
+  border-bottom:2px solid var(--tinta, var(--line)); color:var(--text);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.lanzar-escena{
+  border-radius:var(--r-sm); border:1px solid var(--line); background:var(--panel-2);
+  color:var(--exito); font-size:13px; cursor:pointer;
+}
+.lanzar-escena:hover{border-color:var(--exito)}
+.sesion .celda{
+  height:44px; border-radius:var(--r-sm); border:1px solid var(--line); cursor:pointer;
+  background:var(--panel-2); color:var(--text); font-size:12px; font-weight:600;
+  display:flex; align-items:center; gap:7px; padding:0 10px; overflow:hidden; white-space:nowrap;
+  border-left:3px solid var(--tinta, var(--line));
+}
+.sesion .celda.vacia{color:var(--muted-2); border-style:dashed; border-left-width:1px; justify-content:center}
+.sesion .celda .led-celda{width:9px; height:9px; border-radius:99px; background:var(--muted-2); flex:none}
+.sesion .celda.tocando .led-celda{background:var(--exito); animation:latido 1s infinite}
+.sesion .celda.encolado .led-celda{background:var(--signal); animation:latido .5s infinite}
+.sesion .celda.tocando{border-color:var(--exito)}
+.sesion .celda.encolado{border-color:var(--signal)}
+.fila-escena.pie{margin-top:8px}
+.fila-escena.pie .mas-escena{
+  height:30px; border-radius:var(--r-sm); border:1px dashed var(--line);
+  background:transparent; color:var(--muted-2); cursor:pointer; font-size:15px;
+}
+.fila-escena.pie .mas-escena:hover{color:var(--accent); border-color:var(--accent)}
+.fila-escena.pie .parar-todo{
+  height:30px; border-radius:var(--r-sm); border:1px solid var(--line); background:var(--panel-2);
+  color:var(--danger); cursor:pointer; font-size:11.5px; font-weight:700; padding:0 10px; justify-self:start;
+}
+.fila-escena.pie .cuantiza{
+  display:flex; align-items:center; gap:6px; font-size:11px; color:var(--muted); justify-self:start;
+}
+.fila-escena.pie .cuantiza select{
+  font:inherit; color:var(--text); background:var(--panel-2);
+  border:1px solid var(--line); border-radius:5px; padding:2px 4px;
+}
+
 /* armar y grabar */
 .canal .botones button.r{color:var(--muted-2)}
 .canal .botones button[aria-pressed="true"].r{background:var(--danger-soft); color:var(--danger); border-color:var(--danger)}
@@ -298,8 +347,9 @@ svg{display:block; fill:none; stroke:currentColor; stroke-width:1.7; stroke-line
 .tira .menu{
   position:absolute; bottom:100px; left:0; z-index:30; display:grid; gap:2px; padding:6px;
   background:var(--panel-2); border:1px solid var(--line); border-radius:var(--r-sm);
-  box-shadow:var(--shadow); min-width:130px;
+  box-shadow:var(--shadow); min-width:130px; max-height:min(430px, 60vh); overflow-y:auto;
 }
+.tira .menu .raya{height:1px; background:var(--line); margin:3px 2px}
 .tira .menu button{
   text-align:left; padding:6px 9px; border:none; background:transparent; border-radius:5px;
   cursor:pointer; font-size:13px; color:var(--text);

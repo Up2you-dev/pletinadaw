@@ -33,6 +33,7 @@ export function montarTransporte(acciones) {
             title="Grabar en las pistas armadas (Mayús+clic: con claqueta de un compás)">⏺</button>
     <button class="btn btn-icono" id="b-metronomo" aria-pressed="false" title="Metrónomo">${ICO.metronomo}</button>
     <button class="btn btn-icono" id="b-ciclo" aria-pressed="false" title="Bucle (dibújalo en la mitad alta de la regla)">${ICO.ciclo}</button>
+    <button class="btn btn-icono" id="b-sesion" aria-pressed="false" title="Session View (Tab)">⊞</button>
     <div class="reloj" title="compás.pulso.dieciseisavo · minutos:segundos">
       <span class="musical" id="reloj-musical">1.1.1</span>
       <span class="segundero" id="reloj-segundos">0:00.0</span>
@@ -56,6 +57,7 @@ export function montarTransporte(acciones) {
 
   botonTocar.addEventListener('click', acciones.alConmutar);
   botonGrabar.addEventListener('click', (evento) => acciones.alGrabar(evento.shiftKey));
+  $('#b-sesion').addEventListener('click', acciones.alVistaSesion);
   $('#al-principio').addEventListener('click', () => acciones.alIrA(0));
   $('#b-nuevo').addEventListener('click', acciones.alNuevoProyecto);
   $('#b-abrir').addEventListener('click', acciones.alAbrirProyecto);
@@ -91,6 +93,7 @@ export function pintarBoton() {
   botonGrabar.setAttribute('aria-pressed', estado.grabando ? 'true' : 'false');
   botonMetronomo.setAttribute('aria-pressed', estado.metronomo ? 'true' : 'false');
   botonCiclo.setAttribute('aria-pressed', estado.bucle.activo ? 'true' : 'false');
+  $('#b-sesion')?.setAttribute('aria-pressed', estado.vistaSesion ? 'true' : 'false');
 }
 
 export function pintarProyecto() {

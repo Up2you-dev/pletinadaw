@@ -96,8 +96,12 @@ export function pintarTira() {
     `;
   }).join('');
 
+  const vst = (estado.vst || []).map((p) =>
+    `<button data-tipo="vst:${esc(p.id)}" title="${esc(p.fabricante || '')}">${esc(p.nombre)} ·vst</button>`).join('');
   const menu = INSERTABLES.map((d) =>
-    `<button data-tipo="${d.tipo}">${esc(d.nombre)}</button>`).join('');
+    `<button data-tipo="${d.tipo}">${esc(d.nombre)}</button>`).join('')
+    + (vst ? `<div class="raya"></div>${vst}` : '')
+    + '<button class="escanear-vst">Buscar VST3…</button>';
 
   host.innerHTML = `
     <span class="titulo">${esc(nombre)}</span>
@@ -189,10 +193,14 @@ export function pintarTira() {
   const boton = $('.tira .insertar .mas');
   const menuEl = $('.tira .insertar .menu');
   boton.addEventListener('click', () => { menuEl.hidden = !menuEl.hidden; });
-  for (const opcion of menuEl.querySelectorAll('button')) {
+  for (const opcion of menuEl.querySelectorAll('button[data-tipo]')) {
     opcion.addEventListener('click', () => {
       menuEl.hidden = true;
       acciones.alInsertarPlugin(indicePista, opcion.dataset.tipo);
     });
   }
+  menuEl.querySelector('.escanear-vst')?.addEventListener('click', () => {
+    menuEl.hidden = true;
+    acciones.alEscanearVst();
+  });
 }

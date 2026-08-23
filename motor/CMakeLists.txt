@@ -67,3 +67,28 @@ endif()
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
   target_compile_options(pletina-motor PRIVATE -Wno-unknown-pragmas)
 endif()
+
+# El VST3 de prueba del hosting: un plugin de verdad (-6 dB exactos) que la
+# autoprueba escanea, inserta y mide cuando PLETINA_VST3_PRUEBA apunta a su
+# carpeta. Solo se compila si se pide: no forma parte del producto.
+option(PLETINA_VST_PRUEBA "Compilar el VST3 de prueba para verificar el hosting" OFF)
+if(PLETINA_VST_PRUEBA)
+  juce_add_plugin(pletina-vst-prueba
+    PRODUCT_NAME "Pletina Prueba"
+    COMPANY_NAME "Pletina"
+    PLUGIN_MANUFACTURER_CODE Ptna
+    PLUGIN_CODE Ppru
+    FORMATS VST3
+    IS_SYNTH FALSE
+    NEEDS_MIDI_INPUT FALSE
+    NEEDS_MIDI_OUTPUT FALSE
+    COPY_PLUGIN_AFTER_BUILD FALSE)
+  target_sources(pletina-vst-prueba PRIVATE prueba-vst/PruebaVst.cpp)
+  target_compile_definitions(pletina-vst-prueba PRIVATE
+    JUCE_WEB_BROWSER=0
+    JUCE_USE_CURL=0
+    JUCE_VST3_CAN_REPLACE_VST2=0)
+  target_link_libraries(pletina-vst-prueba PRIVATE
+    juce::juce_audio_utils
+    juce::juce_recommended_config_flags)
+endif()

@@ -50,7 +50,8 @@ function crearVentana() {
 
   ventana.once('ready-to-show', () => ventana.show());
   ventana.on('closed', () => { ventana = null; });
-  ventana.loadURL(appUrl());
+  // PLETINA_VISTA=sesion abre en Session View (lo usa el humo para capturarla).
+  ventana.loadURL(appUrl() + (process.env.PLETINA_VISTA === 'sesion' ? '?vista=sesion' : ''));
 }
 
 app.whenReady().then(() => {
@@ -149,6 +150,12 @@ app.whenReady().then(() => {
           ] });
           await motor.orden('plugin.insertar', { pista: 2, tipo: 'pads' });
           await motor.orden('pista.armar', { pista: 3, activo: true });
+          await motor.orden('sesion.escenas', { numero: 3 });
+          await motor.orden('sesion.poner', { pista: 0, escena: 0, desdeClip: clip.id });
+          await motor.orden('sesion.poner', { pista: 2, escena: 0, desdeClip: patron.id });
+          await motor.orden('sesion.poner', { pista: 1, escena: 1, desdeClip: otro.id });
+          await motor.orden('sesion.cuantizacion', { nombre: 'None' });
+          await motor.orden('sesion.lanzar', { escena: 0 });
           await motor.orden('pista.envio', { pista: 0, bus: 0, nivelDb: -14 });
           await motor.orden('automatizacion.puntos', { pista: 0, parametro: 'volumen',
             puntos: [{ t: 0, v: 0 }, { t: 1.5, v: -14 }, { t: 3, v: -2 }] });

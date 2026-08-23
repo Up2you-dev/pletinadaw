@@ -35,6 +35,12 @@ export const estado = {
 
   pistas: [],
   master: { volumenDb: 0, pan: 0, plugins: [] },
+  vst: [],                        // catálogo VST3 escaneado por el motor
+
+  // Session View.
+  vistaSesion: false,
+  escenas: 0,
+  cuantizacionLanzamiento: '1 Bar',
 };
 
 /** Pistas de demostración para el modo maqueta (sin motor). */
@@ -87,6 +93,8 @@ export function aplicarModelo(modelo) {
     metronomo: !!modelo.metronomo,
     bucle: modelo.bucle || estado.bucle,
     proyecto: modelo.proyecto || estado.proyecto,
+    escenas: modelo.escenas ?? estado.escenas,
+    cuantizacionLanzamiento: modelo.cuantizacionLanzamiento || estado.cuantizacionLanzamiento,
     pistaSeleccionada: Math.min(estado.pistaSeleccionada, pistas.length - 1),
   });
 }

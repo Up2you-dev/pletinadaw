@@ -5,6 +5,7 @@ import { montarArreglo, pintar as pintarArreglo, olvidarPicos } from './ui/arreg
 import { montarMesa, pintarMesa, pintarVU } from './ui/mesa.js';
 import { montarTira, pintarTira } from './ui/tira.js';
 import { montarPiano, pintarPiano } from './ui/piano.js';
+import { montarSesion, pintarSesion } from './ui/sesion.js';
 import { aviso, $ } from './ui/dom.js';
 
 /**
@@ -314,6 +315,14 @@ montarTransporte({
     if (conectado()) orden('transporte.tempo', { bpm }).catch((e) => aviso(e.message));
     else cambiar({ bpm });
   },
+  alVistaSesion: () => {
+    const abrir = !estado.vistaSesion;
+    cambiar({ vistaSesion: abrir });
+    // La primera vez, cuatro escenas de cortesía: una rejilla vacía no invita.
+    if (abrir && !estado.escenas && conectado()) {
+      orden('sesion.escenas', { numero: 4 }).catch((e) => aviso(e.message));
+    }
+  },
 });
 montarRail();
 montarArreglo(accionesArreglo);
@@ -376,6 +385,40 @@ montarTira({
     orden('clip.warp', { id, ...params }).catch((e) => aviso(e.message));
   },
   alAbrirPianoRoll: (id) => cambiar({ pianoRoll: id }),
+  alEscanearVst: async () => {
+    if (!conectado()) return soloConMotor();
+    aviso('Buscando VST3 en las carpetas del sistema…');
+    try {
+      const r = await orden('vst.escanear');
+      cambiar({ vst: (await orden('vst.lista')).plugins || [] });
+      aviso(`VST3: ${r.total} en el catálogo (${r.nuevos} nuevos, ${r.vetados} vetados).`);
+    } catch (error) {
+      aviso(error.message);
+    }
+  },
+});
+montarSesion({
+  alLanzarSesion: (pista, escena) => {
+    if (!conectado()) return soloConMotor();
+    const params = { escena };
+    if (pista >= 0) params.pista = pista;
+    orden('sesion.lanzar', params).catch((e) => aviso(e.message));
+  },
+  alPararSesion: (pista) => {
+    if (!conectado()) return soloConMotor();
+    orden('sesion.parar', pista >= 0 ? { pista } : {}).catch((e) => aviso(e.message));
+  },
+  alPonerEnSesion: (pista, escena, desdeClip) => {
+    if (!conectado()) return soloConMotor();
+    orden('sesion.poner', { pista, escena, desdeClip }).catch((e) => aviso(e.message));
+  },
+  alEscenas: (numero) => {
+    if (!conectado()) return soloConMotor();
+    orden('sesion.escenas', { numero }).catch((e) => aviso(e.message));
+  },
+  alCuantizacionSesion: (nombre) => {
+    if (conectado()) orden('sesion.cuantizacion', { nombre }).catch((e) => aviso(e.message));
+  },
 });
 montarPiano({
   alNotasMidi: (id, notas) => {
@@ -401,6 +444,11 @@ async function sincronizar() {
     aplicarModelo(await orden('pistas.listar'));
   } catch {
     // el evento modelo llegará solo
+  }
+  try {
+    cambiar({ vst: (await orden('vst.lista')).plugins || [] });
+  } catch {
+    // motor viejo sin VST: la tira simplemente no los enseña
   }
 }
 
@@ -430,6 +478,7 @@ if (puente) {
           pistas: datos.pistas || [],
           lufs: datos.lufs || null,
           espectro: datos.espectro || null,
+          sesion: datos.sesion || null,
         },
       });
     } else if (nombre === 'modelo') {
@@ -439,7 +488,13 @@ if (puente) {
       aviso(datos.ok ? `Exportado: ${datos.ruta}` : 'El render ha fallado.');
     }
   });
-} else {
+}
+
+if (new URLSearchParams(window.location.search).get('vista') === 'sesion') {
+  cambiar({ vistaSesion: true });
+}
+
+if (!puente) {
   cambiar({ pistas: pistasDeMaqueta(), pistaSeleccionada: 0 });
 }
 
@@ -452,10 +507,11 @@ suscribir((_estado, cambios) => {
   if ('pistas' in cambios || 'master' in cambios || 'pistaSeleccionada' in cambios) {
     pintarMesa();
     pintarTira();
-  } else if ('seleccion' in cambios) {
-    pintarTira(); // el inspector de clip vive en la tira
+  } else if ('seleccion' in cambios || 'vst' in cambios) {
+    pintarTira(); // el inspector de clip y el catálogo VST viven en la tira
   }
   if ('pianoRoll' in cambios || 'pistas' in cambios) pintarPiano();
+  if ('vistaSesion' in cambios) pintarSesion(true);
   if ('proyecto' in cambios || 'pistas' in cambios) montarRail();
 });
 
@@ -511,6 +567,9 @@ window.addEventListener('keydown', (evento) => {
     document.getElementById('app').classList.toggle('sin-mesa');
   } else if (evento.key === 'b' || evento.key === 'B') {
     document.getElementById('app').classList.toggle('sin-rail');
+  } else if (evento.key === 'Tab') {
+    evento.preventDefault();
+    $('#b-sesion')?.click();
   }
 });
 
@@ -520,6 +579,7 @@ function cuadro(ahora) {
   pintarReloj(ahora);
   pintarArreglo(ahora);
   pintarVU();
+  pintarSesion();   // se guarda solo: repinta únicamente si algo visible cambió
   requestAnimationFrame(cuadro);
 }
 requestAnimationFrame(cuadro);

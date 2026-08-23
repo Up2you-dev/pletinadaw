@@ -7,9 +7,11 @@
     una línea suelta en stdout rompería el canal con la UI.
 
     Uso:
-      pletina-motor                juega con el dispositivo de audio por defecto
-      pletina-motor --sin-audio    bomba interna, para CI y contenedores
-      pletina-motor --prueba       autoprueba sin audio: carga, reproduce y verifica
+      pletina-motor                       juega con el dispositivo de audio por defecto
+      pletina-motor --sin-audio           bomba interna, para CI y contenedores
+      pletina-motor --prueba              autoprueba sin audio: carga, reproduce y verifica
+      pletina-motor --escanear-vst3 RUTA  proceso hijo del escaneo: examina UN candidato
+                                          y escribe sus descripciones XML por stdout
 */
 
 #include "motor.h"
@@ -17,6 +19,25 @@
 
 #include <iostream>
 #include <mutex>
+
+namespace
+{
+    /** El hijo del escaneo: si el plugin revienta, revienta este proceso y el
+        padre lo apunta en la lista negra. Por eso vive aparte del motor. */
+    int escanearCandidato (const juce::String& ruta)
+    {
+        juce::VST3PluginFormat formato;
+        juce::OwnedArray<juce::PluginDescription> descripciones;
+        formato.findAllTypesForFile (descripciones, ruta);
+
+        for (auto* descripcion : descripciones)
+            if (auto xml = descripcion->createXml())
+                std::cout << xml->toString (juce::XmlElement::TextFormat().singleLine()) << "\n";
+
+        std::cout << std::flush;
+        return descripciones.isEmpty() ? 1 : 0;
+    }
+}
 
 namespace
 {
@@ -56,6 +77,12 @@ int main (int argc, char* argv[])
         else if (arg == "--prueba")     { opciones.sinAudio = true; prueba = true; }
         else if (arg == "--frecuencia" && i + 1 < argc)  opciones.frecuencia = juce::String (argv[++i]).getDoubleValue();
         else if (arg == "--bloque" && i + 1 < argc)      opciones.bloque = juce::String (argv[++i]).getIntValue();
+        else if (arg == "--escanear-vst3" && i + 1 < argc)
+        {
+            const int codigo = escanearCandidato (juce::String::fromUTF8 (argv[++i]));
+            juce::Logger::setCurrentLogger (nullptr);
+            return codigo;
+        }
     }
 
     int codigoSalida = 0;

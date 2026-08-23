@@ -183,20 +183,38 @@ El DAW se llena de entradas.
 piano roll (hecho), y todo sobrevive al guardar/abrir (verificado en CI:
 notas, cuantización e instrumentos vuelven enteros).
 
-## F5 · VST3 y Session View
+## F5 · VST3 y Session View · CONSTRUIDA (núcleo)
 
 Se abre la puerta a los plugins de fuera y al directo.
 
-- [ ] Hosting VST3: escaneo en proceso hijo con lista negra, carpeta(s) de
-      plugins configurables, editores en ventanas nativas, presets, PDC.
-- [ ] Session View: rejilla de clips por pista × escenas, disparo con
-      cuantización de lanzamiento, grabación de sesión a arrangement.
+- [x] **Hosting VST3**: escaneo en **proceso hijo** (el propio binario con
+      `--escanear-vst3`, un proceso por candidato: el que revienta o se
+      cuelga va a la lista negra sin llevarse el motor), carpetas
+      configurables (`vst.carpetas`, con las del sistema por defecto),
+      catálogo persistente entre arranques, inserción desde el menú de la
+      tira como cualquier efecto (`vst:<id>`), parámetros descritos y
+      automatizables con la misma maquinaria que la suite. Verificado en CI
+      con un **VST3 real compilado ex profeso** (atenúa 6 dB exactos): se
+      escanea, se inserta, el proyecto se guarda y reabre con él dentro, y
+      el render sale a la mitad clavada. Pendiente: la ventana nativa con el
+      editor gráfico del plugin (hoy la tira pinta sus parámetros
+      genéricos), presets del propio plugin.
+- [x] **Session View**: rejilla escenas × pistas (⊞ o Tab), lanzar ranura o
+      escena entera con **cuantización de lanzamiento** elegible (None…1/16),
+      copiar clips del arreglo a las ranuras, parar por pista o todo, y los
+      estados (tocando/encolado) latiendo en vivo con los medidores. La
+      autoprueba lanza una ranura sin cuantizar y verifica que queda
+      "tocando" con el transporte en marcha. Pendiente: grabar la sesión al
+      arrangement, disparo por teclado/MIDI.
 - [ ] Grupos de pistas; racks/cadenas con macros (8 mandos por rack).
 - [ ] Side-chain enrutables entre pistas (para Puerta, compresores y Techo).
 
-**Hecho cuando**: una sesión con 4 escenas se toca en directo, un proyecto
-con VST3 de terceros cierra y reabre con todo su estado, y un plugin que
-cuelga en el escaneo no tumba nada.
+**Hecho cuando**: una sesión con 4 escenas se toca en directo (hecho en
+contenedor; el directo con manos y oídos, pendiente de hardware), un
+proyecto con VST3 de terceros cierra y reabre con todo su estado (verificado
+con el VST3 de prueba; con plugins comerciales reales, pendiente de una
+máquina con ellos), y un plugin que cuelga en el escaneo no tumba nada (el
+proceso hijo muere solo y queda vetado; probado con el escaneo real).
 
 ## F6 · Pulido y release → v1.0
 

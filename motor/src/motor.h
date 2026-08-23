@@ -55,6 +55,11 @@ public:
     juce::var listarDispositivos();
     juce::var tonoDePrueba (const juce::var& params);   // solo --sin-audio
 
+    // VST3: carpetas de búsqueda, escaneo (en procesos hijo) y catálogo.
+    juce::var carpetasVst (const juce::var& params);
+    juce::var escanearVst();
+    juce::var listaVst() const;
+
     // Proyecto: una carpeta con proyecto.tracktionedit y media/.
     juce::var nuevoProyecto (const juce::String& carpeta);
     juce::var abrirProyecto (const juce::String& carpeta);
@@ -86,6 +91,13 @@ public:
     juce::var crearClipMidi (int pista, double inicio, double compases);
     juce::var notasClipMidi (const juce::String& id, const juce::var& notas);
     juce::var cuantizarClipMidi (const juce::String& id, const juce::String& division);
+
+    // Session View: escenas × pistas con lanzamiento cuantizado.
+    juce::var escenasSesion (int numero);
+    juce::var ponerEnSesion (int pista, int escena, const juce::String& desdeClip);
+    juce::var lanzarSesion (int pista, int escena);      // pista -1 = la escena entera
+    juce::var pararSesion (int pista);                   // -1 = todas
+    juce::var cuantizacionSesion (const juce::String& nombre);
 
     // Cadenas de la suite (pista -1 = máster).
     juce::var insertarPlugin (int pista, const juce::String& tipo, int indice);
@@ -130,6 +142,8 @@ private:
 
     te::AudioTrack* pista (int indice) const;
     te::Clip* clip (const juce::String& id) const;
+    juce::StringArray rutasVst() const;
+    void guardarCatalogoVst();
     te::PluginList* cadena (int indice) const;      // -1 = máster
     juce::Array<te::Plugin*> cadenaUsuario (int indice) const;
     juce::File carpetaMedia() const;

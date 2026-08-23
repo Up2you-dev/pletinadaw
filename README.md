@@ -8,11 +8,15 @@ grabación, MIDI, warping, y una suite propia de efectos con la cadena de
 mastering como pieza central. Sin nube, sin cuentas y sin IA: tus proyectos
 viven en tu disco.
 
-**Estado: F4 — grabar y MIDI (núcleo construido).** Se graba audio en las
-pistas armadas (con claqueta opcional) y también MIDI; hay clips MIDI con
-piano roll, cuantización no destructiva y tres instrumentos propios: la
-**Bruma** (sinte sustractivo), la **Cinta** (sampler) y los **Pads** (16
-pads sintetizados). Además, ya se importa audio, se edita
+**Estado: F5 — VST3 y Session View (núcleo construido).** Se alojan
+**plugins VST3 de terceros** (escaneo en proceso hijo con lista negra,
+catálogo persistente, estado guardado en el proyecto) y hay **Session
+View**: escenas × pistas con lanzamiento cuantizado, como en el directo.
+Antes de eso: se graba audio en las pistas armadas (con claqueta opcional)
+y también MIDI; hay clips MIDI con piano roll, cuantización no destructiva
+y tres instrumentos propios: la **Bruma** (sinte sustractivo), la **Cinta**
+(sampler) y los **Pads** (16 pads sintetizados). Además, ya se importa
+audio, se edita
 en el timeline (mover, recortar, dividir, duplicar, fundidos, imán,
 deshacer), se mezcla con envíos y retornos, se automatiza el volumen, y se
 procesa con una suite de **35 efectos propios**: la cadena de mastering
