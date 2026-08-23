@@ -5,6 +5,9 @@
  * existe en el esqueleto.
  */
 
+/** Fase del roadmap ya construida: lo de fase ≤ FASE_ACTUAL existe de verdad. */
+export const FASE_ACTUAL = 1;
+
 export const CATALOGO = [
   {
     grupo: 'Ecualizadores',

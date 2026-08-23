@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron';
+import { contextBridge, ipcRenderer, webUtils } from 'electron';
 
 /**
  * La única puerta entre la interfaz y el sistema, como en el reproductor:
@@ -24,6 +24,16 @@ contextBridge.exposeInMainWorld('pletinadaw', {
     alRecibirEvento: subscribe('motor:evento'),
     alCambiarEstado: subscribe('motor:estado'),
   },
+
+  dialogos: {
+    importarAudio: () => invoke('dialogo:importarAudio'),
+    nuevoProyecto: () => invoke('dialogo:nuevoProyecto'),
+    abrirProyecto: () => invoke('dialogo:abrirProyecto'),
+    exportar: () => invoke('dialogo:exportar'),
+  },
+
+  /** Ruta real de un File soltado sobre la ventana (arrastrar y soltar). */
+  rutaDe: (file) => webUtils.getPathForFile(file),
 
   version: () => invoke('app:version'),
 });

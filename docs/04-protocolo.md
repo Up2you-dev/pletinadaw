@@ -23,27 +23,34 @@ Códigos de error al estilo JSON-RPC: `-32700` JSON ilegible, `-32601` método
 desconocido, `-32000` fallo de la operación (el mensaje viene en castellano y
 se puede enseñar tal cual).
 
-## Métodos de F0
+## Métodos (estado F1)
 
-| Método | Params | Resultado |
+| Zona | Métodos | Notas |
 |---|---|---|
-| `hola` | — | `nombre`, `version`, `motor`, `audio` (`dispositivo`/`sin-audio`), `capacidades[]` |
-| `dispositivos.listar` | — | `actual`, `tipo`, `frecuencia`, `bloque`, `dispositivos[]` |
-| `edit.nuevo` | — | `pistas` |
-| `edit.cargarAudio` | `ruta` | `duracion`, `frecuencia`, `canales` |
-| `transporte.tocar` | — | estado del transporte |
-| `transporte.parar` | — | estado del transporte |
-| `transporte.irA` | `segundos` | estado del transporte |
-| `transporte.estado` | — | `reproduciendo`, `segundos` |
-| `salir` | — | `adios` |
+| saludo | `hola`, `dispositivos.listar` | `hola` anuncia `capacidades[]` y la `suite[]` disponible |
+| proyecto | `proyecto.nuevo {carpeta}`, `proyecto.abrir {ruta}`, `proyecto.guardar` | el proyecto es una carpeta con `proyecto.tracktionedit` y `media/` |
+| modelo | `pistas.listar` | la foto completa (ver evento `modelo`) |
+| pistas | `pista.crear`, `pista.borrar`, `pista.renombrar`, `pista.mezcla {volumenDb, pan, mute, solo}` | `pista.mezcla` no emite `modelo`: los faders disparan decenas por segundo |
+| clips | `clip.importar {pista, ruta, inicio}`, `clip.mover {id, inicio, pista?}`, `clip.recortar {id, inicio, fin}`, `clip.dividir {id, segundos}`, `clip.borrar {id}`, `clip.picos {id, porSegundo}` | importar copia el audio a `media/` del proyecto |
+| suite | `plugin.insertar {pista, tipo, indice}`, `plugin.quitar`, `plugin.parametro {parametro, valor}`, `plugin.activar` | `pista = -1` es el máster; los tipos válidos vienen en `hola.suite` |
+| transporte | `transporte.tocar/parar/irA/estado/tempo/metronomo/bucle` | |
+| deshacer | `deshacer.deshacer`, `deshacer.rehacer` | cada orden mutadora es una transacción |
+| render | `render.exportar {ruta}` | WAV; bloquea el hilo de mensajes lo que dure |
+| fin | `salir` | |
 
-## Eventos de F0
+## Eventos (estado F1)
 
 | Evento | Cuándo | Datos |
 |---|---|---|
 | `arrancado` | al nacer el proceso | `version`, `audio` |
-| `medidores` | ~15 Hz mientras reproduce (y una última al parar) | `segundos`, `reproduciendo`, `izq`, `der` (dBFS) |
-| `prueba` | solo con `--prueba` | `ok`, `segundos`, `pico` |
+| `modelo` | tras cada orden que muta el proyecto | la foto completa: `proyecto`, `bpm`, `metronomo`, `bucle`, `pistas[]` (con `clips[]` y `plugins[]` con sus `parametros[]` descriptores), `master` |
+| `medidores` | ~15 Hz mientras reproduce (y una última al parar) | `segundos`, `reproduciendo`, `izq`, `der` (dBFS), `pistas[]` (VU por pista) y `lufs {m, s, i, pico}` si hay Medidor en el máster |
+| `render.terminado` | al acabar una exportación | `ruta`, `ok` |
+| `prueba` | solo con `--prueba` | los veredictos de la autoprueba |
+
+La interfaz no conoce los efectos de nada: pinta los `parametros[]` que
+describe el propio plugin (id, nombre, valor, min, max). Un efecto nuevo en
+el motor aparece en la tira sin tocar una línea de la interfaz.
 
 ## El contrato es un test
 

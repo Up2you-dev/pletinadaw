@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { writeFile } from 'node:fs/promises';
-import { app, BrowserWindow, ipcMain, nativeTheme } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, nativeTheme } from 'electron';
 
 import { registerSchemes, handleProtocols, appUrl } from './protocols.js';
 import { crearMotor } from './motor.js';
@@ -69,15 +69,68 @@ app.whenReady().then(() => {
   ipcMain.handle('motor:estado', () => motor.estado());
   ipcMain.handle('app:version', () => app.getVersion());
 
+  // Diálogos del sistema: la interfaz pide, el proceso principal pregunta.
+  ipcMain.handle('dialogo:importarAudio', async () => {
+    const r = await dialog.showOpenDialog(ventana, {
+      title: 'Importar audio',
+      properties: ['openFile', 'multiSelections'],
+      filters: [{ name: 'Audio', extensions: ['wav', 'mp3', 'flac', 'ogg', 'aif', 'aiff'] }],
+    });
+    return r.canceled ? [] : r.filePaths;
+  });
+
+  ipcMain.handle('dialogo:nuevoProyecto', async () => {
+    const r = await dialog.showSaveDialog(ventana, {
+      title: 'Nuevo proyecto: elige carpeta y nombre',
+      buttonLabel: 'Crear proyecto',
+      nameFieldLabel: 'Nombre',
+    });
+    return r.canceled ? null : r.filePath;
+  });
+
+  ipcMain.handle('dialogo:abrirProyecto', async () => {
+    const r = await dialog.showOpenDialog(ventana, {
+      title: 'Abrir proyecto',
+      properties: ['openFile'],
+      filters: [{ name: 'Proyecto Pletina', extensions: ['tracktionedit'] }],
+    });
+    return r.canceled ? null : r.filePaths[0];
+  });
+
+  ipcMain.handle('dialogo:exportar', async () => {
+    const r = await dialog.showSaveDialog(ventana, {
+      title: 'Exportar mezcla a WAV',
+      defaultPath: 'mezcla.wav',
+      filters: [{ name: 'WAV', extensions: ['wav'] }],
+    });
+    return r.canceled ? null : r.filePath;
+  });
+
   crearVentana();
 
-  // Modo humo: arrancar de verdad, darle al tocar si el motor está, capturar
-  // la pantalla con el transporte corriendo y salir limpio. La captura es la
-  // prueba: si el cursor no se ha movido, algo del puente se ha roto.
+  // Modo humo: arrancar de verdad y, si el motor está, montar una sesión
+  // pequeña por el protocolo (importar un WAV generado, dividirlo, Medidor en
+  // el máster, tocar) y capturar con las ondas reales y el transporte
+  // corriendo. La captura es la prueba: si algo del puente se rompe, se ve.
   const captura = process.env.PLETINA_SMOKE;
   if (captura) {
     ventana.webContents.once('did-finish-load', () => {
-      setTimeout(() => motor.orden('transporte.tocar').catch(() => {}), 900);
+      setTimeout(async () => {
+        try {
+          const { escribirWavDePrueba } = await import('./wav-prueba.js');
+          const wav = path.join(app.getPath('temp'), 'pletinadaw-humo.wav');
+          await escribirWavDePrueba(wav, 2);
+          const clip = await motor.orden('clip.importar', { pista: 0, ruta: wav, inicio: 0 });
+          await motor.orden('clip.importar', { pista: 1, ruta: wav, inicio: 1 });
+          await motor.orden('clip.dividir', { id: clip.id, segundos: 1 });
+          await motor.orden('plugin.insertar', { pista: -1, tipo: 'medidor' });
+          await motor.orden('plugin.insertar', { pista: -1, tipo: 'techo' });
+          await motor.orden('transporte.tocar');
+        } catch {
+          // sin motor, el humo captura la maqueta: también vale
+        }
+      }, 900);
+
       setTimeout(async () => {
         try {
           const imagen = await ventana.webContents.capturePage();
@@ -87,7 +140,7 @@ app.whenReady().then(() => {
           console.error('humo: no se pudo capturar', error);
           app.exit(1);
         }
-      }, 2400);
+      }, 3400);
     });
   }
 });

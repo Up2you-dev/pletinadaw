@@ -1,21 +1,28 @@
-import { $ } from './dom.js';
+import { $, esc } from './dom.js';
 import { ICO } from './iconos.js';
-import { estado, cambiar, posicionParaPintar } from '../estado.js';
+import { estado, posicionParaPintar } from '../estado.js';
 import { formatoMusical, formatoReloj, bpmValido } from '../../shared/tiempo.js';
 
 /**
- * La barra de transporte: tocar/parar, el reloj doble (musical y de pared),
- * el tempo y el chip del motor. Manda órdenes si el motor está; si no, mueve
- * un reloj local para que la maqueta se pueda recorrer igual.
+ * La barra de transporte: proyecto (nuevo/abrir/guardar/importar/exportar),
+ * tocar/parar, el reloj doble, tempo, metrónomo y el chip del motor.
  */
 
-let relojMusical, relojSegundos, botonTocar;
+let relojMusical, relojSegundos, botonTocar, botonMetronomo, chipProyecto;
 
-export function montarTransporte({ alConmutar, alIrA }) {
+export function montarTransporte(acciones) {
   const host = $('#transporte');
   host.innerHTML = `
+    <button class="btn btn-icono" id="b-nuevo" title="Nuevo proyecto">${ICO.nuevo}</button>
+    <button class="btn btn-icono" id="b-abrir" title="Abrir proyecto">${ICO.carpeta}</button>
+    <button class="btn btn-icono" id="b-guardar" title="Guardar (Ctrl+S)">${ICO.guardar}</button>
+    <span class="separador"></span>
+    <button class="btn" id="b-importar" title="Importar audio a la pista seleccionada">${ICO.importar}<span>Importar</span></button>
+    <button class="btn" id="b-exportar" title="Exportar la mezcla a WAV">${ICO.exportar}<span>Exportar</span></button>
+    <span class="separador"></span>
     <button class="btn btn-icono" id="al-principio" title="Ir al principio (Inicio)">${ICO.alPrincipio}</button>
     <button class="btn btn-icono btn-primary" id="tocar" title="Tocar / parar (espacio)">${ICO.tocar}</button>
+    <button class="btn btn-icono" id="b-metronomo" aria-pressed="false" title="Metrónomo">${ICO.metronomo}</button>
     <div class="reloj" title="compás.pulso.dieciseisavo · minutos:segundos">
       <span class="musical" id="reloj-musical">1.1.1</span>
       <span class="segundero" id="reloj-segundos">0:00.0</span>
@@ -25,28 +32,50 @@ export function montarTransporte({ alConmutar, alIrA }) {
       <span>BPM</span>
       <span class="compas">${estado.compas[0]}/${estado.compas[1]}</span>
     </label>
+    <span class="chip-proyecto" id="chip-proyecto"></span>
   `;
 
   relojMusical = $('#reloj-musical');
   relojSegundos = $('#reloj-segundos');
   botonTocar = $('#tocar');
+  botonMetronomo = $('#b-metronomo');
+  chipProyecto = $('#chip-proyecto');
 
-  botonTocar.addEventListener('click', alConmutar);
-  $('#al-principio').addEventListener('click', () => alIrA(0));
+  botonTocar.addEventListener('click', acciones.alConmutar);
+  $('#al-principio').addEventListener('click', () => acciones.alIrA(0));
+  $('#b-nuevo').addEventListener('click', acciones.alNuevoProyecto);
+  $('#b-abrir').addEventListener('click', acciones.alAbrirProyecto);
+  $('#b-guardar').addEventListener('click', acciones.alGuardar);
+  $('#b-importar').addEventListener('click', acciones.alImportarDialogo);
+  $('#b-exportar').addEventListener('click', acciones.alExportar);
+  botonMetronomo.addEventListener('click', acciones.alMetronomo);
 
   const bpm = $('#bpm');
   bpm.addEventListener('change', () => {
     const valor = bpmValido(bpm.value, estado.bpm);
     bpm.value = valor;
-    cambiar({ bpm: valor });
+    acciones.alCambiarTempo(valor);
   });
 
   pintarBoton();
+  pintarProyecto();
 }
 
 export function pintarBoton() {
   botonTocar.innerHTML = estado.reproduciendo ? ICO.parar : ICO.tocar;
   botonTocar.title = estado.reproduciendo ? 'Parar (espacio)' : 'Tocar (espacio)';
+  botonMetronomo.setAttribute('aria-pressed', estado.metronomo ? 'true' : 'false');
+}
+
+export function pintarProyecto() {
+  const { proyecto, exportando } = estado;
+  const nombre = esc(proyecto.nombre || 'sin guardar');
+  const punto = proyecto.modificado ? ' ·' : '';
+  chipProyecto.textContent = exportando ? 'exportando…' : `${nombre}${punto}`;
+  chipProyecto.title = proyecto.ruta || 'Proyecto temporal: usa Nuevo proyecto para darle carpeta';
+
+  const bpm = $('#bpm');
+  if (bpm && document.activeElement !== bpm) bpm.value = estado.bpm;
 }
 
 /** Llamado desde el bucle de pintado: el reloj corre aunque los eventos lleguen a 15 Hz. */

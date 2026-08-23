@@ -26,34 +26,43 @@ La casa con los cimientos y la primera nota.
 - [x] Tests: lógica pura de la UI, contrato del protocolo entre lados, y
       autoprueba del motor en CI (Linux y Windows).
 
-## F1 · Editar y sonar
+## F1 · Editar y sonar — núcleo construido, rematando
 
 De maqueta a editor de verdad: la primera vez que alguien monta un tema.
 
-- [ ] Importar WAV/MP3/FLAC/OGG (diálogo y arrastrar); el audio se copia a
+- [x] Importar WAV/MP3/FLAC/OGG (diálogo y arrastrar); el audio se copia a
       `media/` del proyecto.
-- [ ] Arrangement real: mover, recortar por los bordes, dividir, duplicar,
-      fundidos de entrada/salida y crossfade, loop de clip, imán a rejilla
-      con zoom adaptativo, selección múltiple.
-- [ ] Formas de onda por pirámide de picos calculada por el motor.
-- [ ] Pistas: crear, borrar, reordenar, renombrar, color, mute/solo/arm.
-- [ ] Mesa completa: fader, pan, medidor por pista, 2 sends, retornos, y
-      canal máster.
-- [ ] Cadenas de inserción por pista y en el máster, con la tira de
-      dispositivos operativa (insertar, quitar, reordenar, bypass).
-- [ ] **Primeros efectos de la suite: EQ Ocho (4 bandas + analizador),
-      Compresor, Techo (base) y Medidor (LUFS + pico)** — desde F1 se puede
-      mezclar y dejar un máster básico decente.
-- [ ] Utilidad (ganancia/fase/anchura).
-- [ ] Transporte completo: loop de proyecto, metrónomo, tempo y compás.
-- [ ] Proyecto: carpeta, guardar/abrir, autoguardado atómico, recuperación.
-- [ ] Deshacer/rehacer de todo lo anterior.
-- [ ] Exportar WAV y MP3 del máster.
-- [ ] Atajos de edición (herramientas, zoom, navegación).
+- [x] Arrangement real: mover (también entre pistas), recortar por los
+      bordes, dividir (T), borrar, imán a rejilla con zoom adaptativo,
+      selección (con Mayús para acumular).
+- [ ] Pendiente de arrangement: duplicar, fundidos y crossfade, loop de
+      clip, selección por goma.
+- [x] Formas de onda reales por picos calculados por el motor (por archivo
+      fuente, con caché en la interfaz).
+- [x] Pistas: crear, borrar, renombrar (doble clic), color por índice,
+      mute/solo. Pendiente: reordenar, armado (con la grabación, F4).
+- [x] Mesa: fader, pan, VU por pista, máster con VU y sonoridad.
+      Pendiente: sends y retornos.
+- [x] Cadenas de inserción por pista y máster con la tira operativa
+      (insertar, quitar, bypass, mandos generados del descriptor).
+      Pendiente: reordenar arrastrando.
+- [x] **Primeros efectos de la suite: EQ Ocho (4 bandas), Compresor, Techo
+      (lookahead) y Medidor (LUFS M/S/I según BS.1770 + pico)**. Pendiente:
+      el analizador de espectro del EQ (F2).
+- [x] Utilidad (ganancia/fase/anchura/mono).
+- [x] Transporte: loop de proyecto (protocolo), metrónomo, tempo.
+      Pendiente: interfaz para dibujar el bucle en la regla.
+- [x] Proyecto: carpeta con media/, guardar/abrir. Pendiente: autoguardado
+      y recuperación.
+- [x] Deshacer/rehacer (Ctrl+Z / Ctrl+Y) por transacciones.
+- [x] Exportar WAV del máster. Pendiente: MP3 (necesita LAME) y stems (F2).
+- [x] Atajos: espacio, Inicio, T, Supr, Ctrl+Z/Y/S, M, B, zoom con Ctrl+rueda.
 
 **Hecho cuando**: se montan 8 stems en un arreglo, se mezclan con EQ y
 compresión, se exporta a −14 LUFS comprobados por el Medidor, y el proyecto
-reabre idéntico.
+reabre idéntico. La autoprueba del motor (`--prueba`) ya cubre el ciclo
+entero en CI: proyecto → importar → dividir/mover/recortar → deshacer →
+suite en el máster → sonar → exportar → guardar → reabrir.
 
 ## F2 · Mastering y mezcla a fondo — prioridad declarada
 

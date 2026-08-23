@@ -11,16 +11,38 @@
 export const METODOS = [
   'hola',
   'dispositivos.listar',
-  'edit.nuevo',
-  'edit.cargarAudio',
+  'proyecto.nuevo',
+  'proyecto.abrir',
+  'proyecto.guardar',
+  'pistas.listar',
+  'pista.crear',
+  'pista.borrar',
+  'pista.renombrar',
+  'pista.mezcla',
+  'clip.importar',
+  'clip.mover',
+  'clip.recortar',
+  'clip.dividir',
+  'clip.borrar',
+  'clip.picos',
+  'plugin.insertar',
+  'plugin.quitar',
+  'plugin.parametro',
+  'plugin.activar',
   'transporte.tocar',
   'transporte.parar',
   'transporte.irA',
   'transporte.estado',
+  'transporte.tempo',
+  'transporte.metronomo',
+  'transporte.bucle',
+  'deshacer.deshacer',
+  'deshacer.rehacer',
+  'render.exportar',
   'salir',
 ];
 
-export const EVENTOS = ['arrancado', 'medidores', 'prueba'];
+export const EVENTOS = ['arrancado', 'medidores', 'modelo', 'render.terminado', 'prueba'];
 
 /** Serializa una petición a línea NDJSON. El id lo pone quien lleva la cuenta. */
 export function codificarPeticion(id, metodo, params) {

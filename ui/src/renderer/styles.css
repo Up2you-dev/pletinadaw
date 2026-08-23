@@ -111,6 +111,12 @@ svg{display:block; fill:none; stroke:currentColor; stroke-width:1.7; stroke-line
 }
 .campo-bpm .compas{font-family:var(--ff-mono); font-size:14px; color:var(--text); padding:3px 2px}
 
+.separador{width:1px; height:22px; background:var(--line); margin:0 2px; flex:none}
+.chip-proyecto{
+  margin-left:4px; font-size:12px; color:var(--muted); white-space:nowrap;
+  overflow:hidden; text-overflow:ellipsis; max-width:180px;
+}
+
 /* chip de estado del motor: la interfaz no miente */
 .chip-motor{
   margin-left:auto; display:inline-flex; align-items:center; gap:7px; padding:4px 10px;
@@ -170,6 +176,17 @@ svg{display:block; fill:none; stroke:currentColor; stroke-width:1.7; stroke-line
   appearance:none; width:22px; height:12px; border-radius:4px; background:var(--text);
   border:1px solid var(--line); box-shadow:var(--shadow); margin-left:-9px;
 }
+.canal .pan{appearance:auto; width:100%; height:14px; accent-color:var(--muted-2)}
+.canal.elegido{outline:2px solid var(--accent); outline-offset:-2px}
+.canal.anadir{
+  display:grid; place-items:center; width:40px; border-style:dashed; background:transparent;
+  color:var(--muted-2); font-size:22px; cursor:pointer;
+}
+.canal.anadir:hover{color:var(--accent); border-color:var(--accent)}
+.canal .lufs{
+  font-family:var(--ff-mono); font-size:10.5px; color:var(--signal); text-align:center;
+  white-space:nowrap; overflow:hidden;
+}
 .canal .db{font-family:var(--ff-mono); font-size:11px; color:var(--muted); text-align:center}
 .canal .botones{display:flex; gap:4px; justify-content:center}
 .canal .botones button{
@@ -183,23 +200,57 @@ svg{display:block; fill:none; stroke:currentColor; stroke-width:1.7; stroke-line
 .tira .titulo{
   writing-mode:vertical-rl; rotate:180deg; font-family:var(--ff-display); font-size:10px;
   letter-spacing:.12em; text-transform:uppercase; color:var(--muted-2); flex:none;
+  max-height:90px; overflow:hidden;
 }
 .dispositivo{
-  flex:none; width:150px; height:86px; border-radius:var(--r); border:1px solid var(--line);
-  background:var(--panel-2); padding:8px 10px; display:grid; grid-template-rows:auto auto 1fr;
-  gap:2px;
+  flex:none; min-width:150px; max-width:420px; height:96px; border-radius:var(--r);
+  border:1px solid var(--line); background:var(--panel-2); padding:6px 10px 8px;
+  display:grid; grid-template-rows:auto 1fr; gap:4px;
 }
-.dispositivo.futuro{opacity:.62}
-.dispositivo .nombre{font-family:var(--ff-display); font-weight:700; font-size:13px}
-.dispositivo .detalle{font-size:11px; color:var(--muted)}
-.dispositivo .pie{align-self:end; display:flex; justify-content:space-between; align-items:center}
-.dispositivo .led{width:7px; height:7px; border-radius:99px; background:var(--muted-2)}
+.dispositivo.apagado .mandos{opacity:.45}
+.dispositivo .cabeza{display:flex; align-items:center; gap:7px}
+.dispositivo .cabeza .nombre{font-family:var(--ff-display); font-weight:700; font-size:12.5px; margin-right:auto; white-space:nowrap}
+.dispositivo .led{
+  width:10px; height:10px; border-radius:99px; background:var(--muted-2);
+  border:1px solid var(--line); cursor:pointer; padding:0; flex:none;
+}
 .dispositivo.activo .led{background:var(--exito)}
+.dispositivo .cerrar{
+  width:18px; height:18px; border:none; background:transparent; color:var(--muted-2);
+  cursor:pointer; padding:2px; flex:none;
+}
+.dispositivo .cerrar:hover{color:var(--danger)}
+.dispositivo .cerrar svg{width:13px; height:13px}
+.dispositivo .mandos{
+  display:grid; grid-auto-flow:column; grid-template-rows:repeat(2, auto);
+  gap:1px 10px; overflow-x:auto; align-content:start;
+}
+.mando{display:flex; align-items:center; gap:5px; font-size:10px; color:var(--muted); white-space:nowrap}
+.mando span{width:64px; overflow:hidden; text-overflow:ellipsis}
+.mando input{width:70px; height:12px; accent-color:var(--accent)}
+.tira .insertar{position:relative; flex:none}
 .tira .mas{
-  flex:none; width:44px; height:86px; border-radius:var(--r); border:1px dashed var(--line);
+  width:44px; height:96px; border-radius:var(--r); border:1px dashed var(--line);
   display:grid; place-items:center; color:var(--muted-2); background:transparent; cursor:pointer;
 }
 .tira .mas:hover{color:var(--accent); border-color:var(--accent)}
+.tira .menu{
+  position:absolute; bottom:100px; left:0; z-index:30; display:grid; gap:2px; padding:6px;
+  background:var(--panel-2); border:1px solid var(--line); border-radius:var(--r-sm);
+  box-shadow:var(--shadow); min-width:130px;
+}
+.tira .menu button{
+  text-align:left; padding:6px 9px; border:none; background:transparent; border-radius:5px;
+  cursor:pointer; font-size:13px; color:var(--text);
+}
+.tira .menu button:hover{background:var(--accent-soft); color:var(--accent)}
+
+/* renombrar pista: un input flotante sobre el canvas */
+.renombrar{
+  position:absolute; z-index:20; background:var(--bg); color:var(--text);
+  border:1px solid var(--accent); border-radius:5px; padding:3px 6px;
+  font:600 13px var(--ff-display);
+}
 
 /* ---------- varios ---------- */
 .avisos{position:fixed; right:14px; bottom:calc(var(--tira-h) + 14px); display:grid; gap:8px; z-index:40}

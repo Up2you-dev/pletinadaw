@@ -14,8 +14,8 @@ describe('codificar peticiones', () => {
   });
 
   it('incluye los params solo cuando los hay', () => {
-    const linea = codificarPeticion(1, 'edit.cargarAudio', { ruta: '/tmp/a.wav' });
-    expect(JSON.parse(linea).params).toEqual({ ruta: '/tmp/a.wav' });
+    const linea = codificarPeticion(1, 'clip.importar', { pista: 0, ruta: '/tmp/a.wav', inicio: 0 });
+    expect(JSON.parse(linea).params).toEqual({ pista: 0, ruta: '/tmp/a.wav', inicio: 0 });
   });
 
   it('rechaza métodos que no estén en el protocolo', () => {

@@ -8,10 +8,12 @@ grabación, MIDI, warping, y una suite propia de efectos con la cadena de
 mastering como pieza central. Sin nube, sin cuentas y sin IA: tus proyectos
 viven en tu disco.
 
-**Estado: F0 — esqueleto.** La interfaz abre y se recorre entera, el motor
-nativo compila, se hablan por un protocolo propio y un WAV cargado suena y
-avanza. Todo lo demás está planificado, no construido. El mapa completo está
-en [`docs/`](docs/) y el orden de construcción en
+**Estado: F1 — editar y sonar (núcleo construido).** Ya se importa audio
+(diálogo o arrastrando), se edita en el timeline (mover, recortar, dividir,
+borrar, con imán y deshacer), se mezcla (faders, pan, mute/solo, VU por
+pista), se procesa con los primeros efectos de la suite (EQ Ocho, Compresor,
+Techo, Utilidad y el Medidor LUFS), se guarda como carpeta de proyecto y se
+exporta a WAV. Los flecos de F1 y el resto del mapa están en
 [`docs/08-roadmap.md`](docs/08-roadmap.md).
 
 ## Cómo está montado
