@@ -8,26 +8,30 @@ grabación, MIDI, warping, y una suite propia de efectos con la cadena de
 mastering como pieza central. Sin nube, sin cuentas y sin IA: tus proyectos
 viven en tu disco.
 
-**Estado: F5 — VST3 y Session View (núcleo construido).** Se alojan
-**plugins VST3 de terceros** (escaneo en proceso hijo con lista negra,
-catálogo persistente, estado guardado en el proyecto) y hay **Session
-View**: escenas × pistas con lanzamiento cuantizado, como en el directo.
-Antes de eso: se graba audio en las pistas armadas (con claqueta opcional)
-y también MIDI; hay clips MIDI con piano roll, cuantización no destructiva
-y tres instrumentos propios: la **Bruma** (sinte sustractivo), la **Cinta**
-(sampler) y los **Pads** (16 pads sintetizados). Además, ya se importa
-audio, se edita
-en el timeline (mover, recortar, dividir, duplicar, fundidos, imán,
-deshacer), se mezcla con envíos y retornos, se automatiza el volumen, y se
-procesa con una suite de **35 efectos propios**: la cadena de mastering
-completa (Multibanda, Anchura, Techo true-peak, Dither, y el Medidor
-LUFS/LRA/correlación/espectro), reverbs (Placa, Sala, Convolución, Muelle,
-Espejismo) y los quince clásicos vintage (Válvulas, Consola, Remache, Ópto,
-Lámpara, Eco de cinta, Coro, Trémolo, Peine…). Los clips hacen **warp** al
-tempo del proyecto con transposición y detección de BPM al importar. Se
-exporta a WAV/FLAC, por stems, y con objetivo de sonoridad verificado
-(−16 LUFS clavados en CI). Los flecos honestos de cada fase y el resto del
-mapa están en [`docs/08-roadmap.md`](docs/08-roadmap.md).
+**Estado: F6 — pulido y release (en curso).** Todas las fases de
+construcción están levantadas y verificadas en CI:
+
+- **Editar**: importar, mover, recortar, dividir, duplicar, fundidos, imán,
+  deshacer; ondas reales; **warp** al tempo del proyecto con transposición
+  y detección de BPM al importar.
+- **Mezclar y masterizar**: envíos y retornos, automatización de volumen, y
+  la suite de **35 efectos propios** — la cadena de mastering completa
+  (Multibanda, Anchura, Techo true-peak, Dither y el Medidor
+  LUFS/LRA/correlación/espectro/vectorscopio), reverbs (Placa, Sala,
+  Convolución, Muelle, Espejismo) y los quince clásicos vintage (Válvulas,
+  Consola, Remache, Ópto, Lámpara, Eco de cinta, Coro, Trémolo, Peine…).
+  Exportar a WAV/FLAC, por stems, con objetivo de sonoridad verificado
+  (−16 LUFS clavados en CI).
+- **Grabar y MIDI**: pistas armadas con claqueta opcional, grabación MIDI,
+  **piano roll**, cuantización no destructiva, y tres instrumentos propios
+  (**Bruma**, **Cinta**, **Pads**).
+- **Directo y terceros**: **Session View** con lanzamiento cuantizado y
+  **hosting VST3** con escaneo en proceso hijo a prueba de plugins rotos.
+
+Queda el pulido de F6 (navegador de contenidos, manual, rendimiento a lo
+grande y el corte de la v1.0). El estado fase a fase, con lo verificado y
+lo pendiente dicho sin maquillaje, vive en
+[`docs/08-roadmap.md`](docs/08-roadmap.md).
 
 ## Cómo está montado
 

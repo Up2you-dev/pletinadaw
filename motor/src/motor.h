@@ -132,6 +132,11 @@ public:
     // Autoprueba para CI y contenedores: reproduce, edita, exporta y verifica.
     int autoprueba();
 
+    // Humo de la suite entera: cada efecto renderiza un segundo de material y
+    // no puede salir mudo, desbocado ni con NaN. (Los renders dorados con
+    // tolerancia fina siguen pendientes; esto caza lo gordo en cada commit.)
+    int pruebaEfectos();
+
 private:
     void timerCallback() override;
     void asegurarEdit();

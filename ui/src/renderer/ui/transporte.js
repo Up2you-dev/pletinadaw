@@ -44,6 +44,8 @@ export function montarTransporte(acciones) {
       <span class="compas">${estado.compas[0]}/${estado.compas[1]}</span>
     </label>
     <span class="chip-proyecto" id="chip-proyecto"></span>
+    <button class="btn btn-icono" id="b-tema" title="Tema claro / oscuro">◐</button>
+    <button class="btn btn-icono" id="b-ayuda" title="Atajos (?)">?</button>
   `;
 
   relojMusical = $('#reloj-musical');
@@ -58,6 +60,8 @@ export function montarTransporte(acciones) {
   botonTocar.addEventListener('click', acciones.alConmutar);
   botonGrabar.addEventListener('click', (evento) => acciones.alGrabar(evento.shiftKey));
   $('#b-sesion').addEventListener('click', acciones.alVistaSesion);
+  $('#b-tema').addEventListener('click', acciones.alTema);
+  $('#b-ayuda').addEventListener('click', acciones.alAyuda);
   $('#al-principio').addEventListener('click', () => acciones.alIrA(0));
   $('#b-nuevo').addEventListener('click', acciones.alNuevoProyecto);
   $('#b-abrir').addEventListener('click', acciones.alAbrirProyecto);

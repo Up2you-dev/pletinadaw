@@ -169,4 +169,27 @@ export function pintarVU() {
       ctx.fillRect(i * anchoBarra + 1, canvas.height - h, anchoBarra - 2, h);
     }
   }
+
+  // El vectorscopio: nube L/R girada 45° — vertical mono, horizontal contrafase.
+  for (const canvas of $$('.vectorscopio')) {
+    const ctx = canvas.getContext('2d');
+    const estilo = getComputedStyle(document.documentElement);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const cx = canvas.width / 2;
+    const cy = canvas.height / 2;
+    ctx.strokeStyle = estilo.getPropertyValue('--line').trim();
+    ctx.strokeRect(0.5, 0.5, canvas.width - 1, canvas.height - 1);
+    ctx.beginPath(); ctx.moveTo(cx, 2); ctx.lineTo(cx, canvas.height - 2); ctx.stroke();
+    const xy = m.xy;
+    if (!xy?.length) continue;
+    ctx.fillStyle = estilo.getPropertyValue('--signal').trim();
+    const escala = canvas.width * 0.48;
+    for (let i = 0; i < xy.length; i += 2) {
+      const izq = xy[i];
+      const der = xy[i + 1];
+      const x = cx + ((izq - der) * 0.7071) * escala;
+      const y = cy - ((izq + der) * 0.7071) * escala;
+      ctx.fillRect(x - 0.8, y - 0.8, 1.6, 1.6);
+    }
+  }
 }

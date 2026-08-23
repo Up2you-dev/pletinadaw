@@ -15,6 +15,8 @@ function rutasCandidatas(raiz) {
   const exe = process.platform === 'win32' ? 'pletina-motor.exe' : 'pletina-motor';
   const candidatas = [];
   if (process.env.PLETINA_MOTOR) candidatas.push(process.env.PLETINA_MOTOR);
+  // Empaquetada: el instalador deja el motor en resources/motor/.
+  if (process.resourcesPath) candidatas.push(path.join(process.resourcesPath, 'motor', exe));
   for (const configuracion of ['Release', 'Debug', '']) {
     candidatas.push(path.join(raiz, 'motor', 'build', 'pletina-motor_artefacts', configuracion, exe));
   }

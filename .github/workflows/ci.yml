@@ -55,6 +55,8 @@ jobs:
         run: >
           PLETINA_VST3_PRUEBA="$GITHUB_WORKSPACE/motor/build/pletina-vst-prueba_artefacts/Release/VST3"
           ./motor/build/pletina-motor_artefacts/Release/pletina-motor --prueba
+      - name: humo de la suite entera (38 renders)
+        run: ./motor/build/pletina-motor_artefacts/Release/pletina-motor --prueba-efectos
 
   motor-windows:
     name: motor · Windows
@@ -71,6 +73,8 @@ jobs:
       - run: cmake --build motor/build --config Release
       - name: autoprueba sin tarjeta de sonido
         run: motor/build/pletina-motor_artefacts/Release/pletina-motor.exe --prueba
+      - name: humo de la suite entera (38 renders)
+        run: motor/build/pletina-motor_artefacts/Release/pletina-motor.exe --prueba-efectos
       - uses: actions/upload-artifact@v4
         with:
           name: pletina-motor-windows

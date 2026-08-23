@@ -77,7 +77,7 @@ svg{display:block; fill:none; stroke:currentColor; stroke-width:1.7; stroke-line
 
 /* ---------- marca ---------- */
 .brand{display:flex; align-items:center; gap:9px; min-width:0}
-.brand h1{font-family:var(--ff-display); font-weight:700; font-size:18px; letter-spacing:-.04em; margin:0; white-space:nowrap}
+.brand h1{font-family:var(--ff-display); font-weight:700; font-size:18px; letter-spacing:-.04em; margin:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0}
 .brand h1 span{color:var(--accent); font-weight:600}
 .brand .logo{width:22px; height:22px; border-radius:6px; flex:none}
 
@@ -96,7 +96,13 @@ svg{display:block; fill:none; stroke:currentColor; stroke-width:1.7; stroke-line
 .btn[aria-pressed="true"]{background:var(--accent-soft); border-color:var(--accent); color:var(--accent)}
 
 /* ---------- transporte ---------- */
-.transporte{display:flex; align-items:center; gap:8px; margin-left:6px}
+.transporte{display:flex; align-items:center; gap:8px; margin-left:6px; min-width:0; flex:none}
+
+/* En ventanas justas, los botones con texto se quedan en icono. */
+@media (max-width: 1500px){
+  #b-importar span, #b-exportar span{display:none}
+  .transporte{gap:6px}
+}
 .reloj{
   display:flex; align-items:baseline; gap:10px; padding:4px 12px;
   background:var(--bg); border:1px solid var(--line); border-radius:var(--r-sm);
@@ -282,6 +288,28 @@ svg{display:block; fill:none; stroke:currentColor; stroke-width:1.7; stroke-line
 .piano-cabeza .cerrar:hover{color:var(--danger); border-color:var(--danger)}
 .piano-scroll{max-height:min(480px, 62vh); overflow:auto}
 .piano-scroll canvas{display:block}
+
+.medidor-lienzos{display:flex; gap:6px; align-items:center}
+.medidor-lienzos canvas{border-radius:4px; background:var(--bg)}
+
+/* ---------- ayuda de atajos ---------- */
+.ayuda-atajos{
+  position:fixed; inset:0; z-index:70; display:grid; place-items:center;
+  background:rgba(0,0,0,.45); backdrop-filter:blur(2px);
+}
+.ayuda-caja{
+  width:min(480px, 92vw); max-height:78vh; overflow:auto; background:var(--panel);
+  border:1px solid var(--line); border-radius:var(--r); box-shadow:var(--shadow); padding:14px 18px;
+}
+.ayuda-cabeza{display:flex; align-items:center; justify-content:space-between; margin-bottom:10px}
+.ayuda-cabeza span{font-family:var(--ff-display); font-weight:700; font-size:14px}
+.ayuda-cabeza .cerrar{
+  width:24px; height:24px; border-radius:6px; border:1px solid var(--line);
+  background:transparent; color:var(--muted-2); cursor:pointer;
+}
+.ayuda-caja dl{display:grid; grid-template-columns:auto 1fr; gap:6px 14px; margin:0; font-size:13px}
+.ayuda-caja dt{font-family:var(--ff-mono); font-size:11.5px; color:var(--accent); white-space:nowrap}
+.ayuda-caja dd{margin:0; color:var(--muted)}
 
 /* ---------- session view ---------- */
 .stage:has(.sesion:not([hidden])) .lienzo-wrap{display:none}

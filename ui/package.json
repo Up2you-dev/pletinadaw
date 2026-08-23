@@ -27,13 +27,61 @@
     "lint": "eslint .",
     "icons": "node build/make-icons.mjs",
     "smoke": "node scripts/smoke.mjs",
-    "verify": "npm run lint && npm test && npm run smoke"
+    "verify": "npm run lint && npm test && npm run smoke",
+    "empaquetar": "electron-builder --win",
+    "empaquetar:dir": "electron-builder --dir"
   },
   "devDependencies": {
     "@eslint/js": "^9.30.0",
     "electron": "^43.4.1",
+    "electron-builder": "^26.8.1",
     "eslint": "^9.30.0",
     "globals": "^16.0.0",
     "vitest": "^4.1.11"
+  },
+  "build": {
+    "appId": "es.up2you.pletinadaw",
+    "productName": "Pletina DAW",
+    "copyright": "Copyright © 2026 Up2you — GPLv3",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "build/icon.png",
+      "!**/*.map"
+    ],
+    "extraResources": [
+      {
+        "from": "../motor/build/pletina-motor_artefacts/Release/",
+        "to": "motor/",
+        "filter": [
+          "pletina-motor*"
+        ]
+      }
+    ],
+    "win": {
+      "icon": "build/icon.png",
+      "target": [
+        "nsis",
+        "portable",
+        "zip"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "license": "../LICENSE",
+      "artifactName": "PletinaDAW-${version}-instalador.${ext}"
+    },
+    "portable": {
+      "artifactName": "PletinaDAW-${version}-portable.${ext}"
+    },
+    "linux": {
+      "icon": "build/icon.png",
+      "target": [
+        "dir"
+      ]
+    }
   }
 }

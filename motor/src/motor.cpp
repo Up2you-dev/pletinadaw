@@ -2001,6 +2001,10 @@ void Motor::timerCallback()
                 juce::Array<juce::var> bandasEspectro;
                 for (auto v : lectura.espectro) bandasEspectro.add ((double) v);
                 pon (datos, "espectro", bandasEspectro);
+
+                juce::Array<juce::var> puntosXY;
+                for (auto v : lectura.xy) puntosXY.add ((double) v);
+                pon (datos, "xy", puntosXY);
             }
 
     // Los estados de lanzamiento cambian solos (en el límite de cuantización):
@@ -2136,6 +2140,84 @@ void Motor::pararBomba()
         bombaViva = false;
         bomba.join();
     }
+}
+
+/* ===================================================== humo de la suite */
+
+int Motor::pruebaEfectos()
+{
+    auto carpeta = engine.getTemporaryFileManager().getTempDirectory();
+
+    // Un segundo de material con enjundia: seno a 220 y a 3k, más un pelín de
+    // ruido, a -12 dB. Con eso hasta un de-eser o una puerta tienen trabajo.
+    auto wav = carpeta.getChildFile ("humo-suite.wav");
+    wav.deleteFile();
+    {
+        juce::WavAudioFormat formato;
+        auto flujo = wav.createOutputStream();
+        if (flujo == nullptr) return 1;
+        std::unique_ptr<juce::AudioFormatWriter> escritor (
+            formato.createWriterFor (flujo.release(), 44100.0, 2, 16, {}, 0));
+        if (escritor == nullptr) return 1;
+
+        juce::AudioBuffer<float> b (2, 44100);
+        juce::Random azar (42);
+        for (int i = 0; i < 44100; ++i)
+        {
+            const double t = i / 44100.0;
+            const float v = 0.18f * (float) std::sin (2.0 * juce::MathConstants<double>::pi * 220.0 * t)
+                          + 0.06f * (float) std::sin (2.0 * juce::MathConstants<double>::pi * 3000.0 * t)
+                          + 0.02f * (azar.nextFloat() * 2.0f - 1.0f);
+            b.setSample (0, i, v);
+            b.setSample (1, i, v * 0.9f);
+        }
+        escritor->writeFromAudioSampleBuffer (b, 0, 44100);
+    }
+
+    auto pausa = [] (int ms) { juce::MessageManager::getInstance()->runDispatchLoopUntil (ms); };
+
+    int fallos = 0;
+    for (auto tipo : TIPOS_SUITE)
+    {
+        const auto proyecto = carpeta.getChildFile ("humo-suite-proyecto");
+        proyecto.deleteRecursively();
+        nuevoProyecto (proyecto.getFullPathName());
+        importarClip (0, wav.getFullPathName(), 0.0);
+        insertarPlugin (-1, tipo, 0);
+        pausa (60);
+
+        const auto salida = carpeta.getChildFile ("humo-" + juce::String (tipo) + ".wav");
+        exportar (salida.getFullPathName());
+
+        float pico = -1.0f;
+        bool finito = true;
+        {
+            std::unique_ptr<juce::AudioFormatReader> lector (formatos().createReaderFor (salida));
+            if (lector != nullptr && lector->lengthInSamples > 0)
+            {
+                juce::AudioBuffer<float> b ((int) lector->numChannels,
+                                            (int) juce::jmin ((juce::int64) 88200, lector->lengthInSamples));
+                lector->read (&b, 0, b.getNumSamples(), 0, true, true);
+                pico = b.getMagnitude (0, b.getNumSamples());
+                for (int c = 0; c < b.getNumChannels() && finito; ++c)
+                    for (int i = 0; i < b.getNumSamples(); ++i)
+                        if (! std::isfinite (b.getSample (c, i))) { finito = false; break; }
+            }
+        }
+
+        // Los instrumentos callan sin MIDI: solo se les exige no romper nada.
+        const bool instrumento = juce::String (tipo) == "bruma" || juce::String (tipo) == "cinta"
+                              || juce::String (tipo) == "pads";
+        const bool bien = finito && pico < 4.0f && (instrumento || pico > 0.005f);
+
+        std::cerr << (bien ? "  ok    " : "  MAL   ") << tipo << "  pico " << pico << "\n";
+        if (! bien) ++fallos;
+        adoptarEdit (nullptr, {});
+    }
+
+    std::cerr << (fallos == 0 ? "humo de la suite: todo en orden\n"
+                              : "humo de la suite: efectos rotos\n");
+    return fallos == 0 ? 0 : 1;
 }
 
 /* ============================================================ autoprueba */

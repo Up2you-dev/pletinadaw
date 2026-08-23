@@ -216,22 +216,57 @@ con el VST3 de prueba; con plugins comerciales reales, pendiente de una
 máquina con ellos), y un plugin que cuelga en el escaneo no tumba nada (el
 proceso hijo muere solo y queda vetado; probado con el escaneo real).
 
-## F6 · Pulido y release → v1.0
+## F6 · Pulido y release → v1.0 · EN CURSO
 
 Lo que separa "funciona" de "se recomienda".
 
-- [ ] Navegador de contenidos: búsqueda, previsualización con audición,
-      favoritos, arrastre universal.
-- [ ] Temas claro/oscuro finos, tamaños de interfaz, mapa de atajos editable.
+- [x] **Humo de la suite entera** (`--prueba-efectos`): los 38 tipos (35
+      efectos + 3 instrumentos) renderizan un segundo de material en CI y
+      ninguno puede salir mudo, desbocado ni con NaN. (Los renders dorados
+      con tolerancia fina por preset siguen pendientes: esto caza lo gordo
+      en cada commit.)
+- [x] **Vectorscopio dibujado** en la tarjeta del Medidor (nube L/R girada
+      a M/S, junto al espectro): el pendiente estético que dejó F2.
+- [x] **EQ Ocho con sus 8 bandas** (shelf grave, seis campanas, shelf
+      agudo). Pendiente: el analizador integrado y el M/S por banda.
+- [x] Tema claro/oscuro con el botón ◐ (se recuerda), y **mapa de atajos**
+      en la tecla `?`. Pendiente: mapa *editable* y tamaños de interfaz.
+- [x] **Instaladores Windows**: electron-builder configurado (NSIS +
+      portable + zip) con el motor dentro de resources/, y el workflow
+      `instaladores.yml` que compila el motor, pasa la autoprueba, empaqueta
+      y cuelga los artefactos (y del release si el disparo es un tag `v*`).
+      El empaquetado está verificado en Linux (`--dir`: el motor viaja donde
+      la app lo busca); la pasada Windows completa queda pendiente de CI con
+      minutos.
+- [ ] Navegador de contenidos (búsqueda, audición, favoritos, arrastre).
 - [ ] Rendimiento: proyectos de 100 pistas, medidor de CPU/disco por pista,
       auditoría de PDC.
-- [ ] Manual en español dentro de la app; visitas guiadas de primer arranque.
-- [ ] Instaladores Windows (NSIS + portable + zip) con el workflow de
-      instaladores de la familia; actualizador que avisa (no que fuerza).
+- [ ] Manual en español dentro de la app; visitas guiadas de primer
+      arranque. (La ayuda de atajos ya vive en `?`.)
+- [ ] Actualizador que avisa (no que fuerza).
 - [ ] Beta pública, triaje, y corte de v1.0.
 
 **Hecho cuando**: tres productores ajenos al proyecto terminan una canción
 cada uno sin abrir otro DAW y sin preguntar nada que el manual no responda.
+
+## Revisión de fases (agosto de 2026)
+
+La foto honesta, de una pasada:
+
+| Fase | Estado | Verificado en CI/contenedor | Pendiente que exige mundo real |
+|---|---|---|---|
+| F0 esqueleto | ✅ | compila, habla, suena, autoprueba | — |
+| F1 editar y sonar | ✅ | ciclo entero de edición y render | crossfade automático, loop de clip, goma, reordenar |
+| F2 mastering | ✅ | −16 LUFS clavados midiendo el archivo | A/B con oídos, vectores EBU oficiales, congelar con dispositivo real |
+| F3 clásicos y warp | ✅ | 15 clásicos sonando; warp 120→150 exacto | marcadores de warp, RubberBand, escucha con material real |
+| F4 grabar y MIDI | ✅ núcleo | grabación de audio y MIDI reales en CI; Bruma sonando | WASAPI/ASIO y MIDI físicos, punch, tomas en capas, afinador |
+| F5 VST3 y sesión | ✅ núcleo | hosting con VST3 real (−6 dB exactos) y lanzamiento en sesión | editores nativos, plugins comerciales, grupos, racks, sidechain |
+| F6 pulido | 🔨 | humo de 38 tipos, empaquetado validado | navegador, manual, rendimiento a lo grande, beta y corte v1.0 |
+
+Regla de lectura: "✅ núcleo" = el corazón de la fase funciona y está
+verificado; los flecos están listados en su sección y no se esconden. Lo
+que pide hardware, oídos o gente (ASIO, A/B, beta) está señalado como tal:
+un contenedor no puede jurar lo que no puede oír.
 
 ## Después de v1.0 (ideas aparcadas, no prometidas)
 

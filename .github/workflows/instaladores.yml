@@ -1,0 +1,62 @@
+# Instaladores de Windows: motor + interfaz empaquetados con electron-builder
+# (NSIS, portable y zip). Se lanza a mano o al etiquetar una versión; los
+# artefactos quedan colgados del run (y del release, si el disparo fue un tag).
+name: instaladores
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  windows:
+    name: instaladores · Windows
+    runs-on: windows-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: caché de dependencias descargadas (JUCE y Tracktion)
+        uses: actions/cache@v4
+        with:
+          path: motor/build/_deps
+          key: deps-windows-${{ hashFiles('motor/CMakeLists.txt') }}
+
+      - name: compilar el motor
+        run: |
+          cmake -B motor/build -S motor
+          cmake --build motor/build --config Release
+
+      - name: autoprueba del motor
+        run: motor/build/pletina-motor_artefacts/Release/pletina-motor.exe --prueba
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+
+      - name: empaquetar la interfaz con el motor dentro
+        working-directory: ui
+        run: |
+          npm ci --no-audit --no-fund
+          npm run empaquetar
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pletina-daw-windows
+          path: |
+            ui/dist/PletinaDAW-*-instalador.exe
+            ui/dist/PletinaDAW-*-portable.exe
+            ui/dist/*.zip
+          if-no-files-found: error
+
+      - name: colgar del release si esto es un tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ui/dist/PletinaDAW-*-instalador.exe
+            ui/dist/PletinaDAW-*-portable.exe
+            ui/dist/*.zip

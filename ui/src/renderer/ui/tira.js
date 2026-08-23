@@ -74,7 +74,10 @@ export function pintarTira() {
 
   const tarjetas = plugins.map((plugin) => {
     const mandos = plugin.tipo === 'medidor'
-      ? '<canvas class="espectro" width="220" height="52" title="Espectro del máster"></canvas>'
+      ? `<div class="medidor-lienzos">
+           <canvas class="espectro" width="170" height="52" title="Espectro del máster"></canvas>
+           <canvas class="vectorscopio" width="52" height="52" title="Vectorscopio (M/S): vertical = mono, horizontal = fuera de fase"></canvas>
+         </div>`
       : (plugin.parametros || []).map((p) => `
       <label class="mando" title="${esc(p.nombre)}: ${Number(p.valor).toFixed(2)}">
         <span>${esc(p.nombre)}</span>

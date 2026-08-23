@@ -135,8 +135,9 @@ public:
     void applyToBuffer (const te::PluginRenderContext&) override;
     void restorePluginStateFromValueTree (const juce::ValueTree&) override;
 
-    // Cuatro bandas en F1 (grave shelf, dos campanas, agudo shelf); ocho en F2.
-    static constexpr int BANDAS = 4;
+    // Ocho bandas: grave shelf, seis campanas, agudo shelf. (Nació con 4 en
+    // F1; el M/S por banda y el analizador propio siguen pendientes.)
+    static constexpr int BANDAS = 8;
     juce::CachedValue<float> frecuencias[BANDAS], ganancias[BANDAS], anchos[BANDAS];
     te::AutomatableParameter::Ptr pFrecuencias[BANDAS], pGanancias[BANDAS], pAnchos[BANDAS];
 
@@ -273,11 +274,13 @@ public:
     void restorePluginStateFromValueTree (const juce::ValueTree&) override {}
 
     static constexpr int BANDAS_ESPECTRO = 24;
+    static constexpr int PUNTOS_XY = 64;
 
     struct Lectura
     {
         float picoDb, picoVerdaderoDb, lufsM, lufsS, lufsI, lra, correlacion;
         float espectro[BANDAS_ESPECTRO];
+        float xy[PUNTOS_XY * 2];   // pares L,R diezmados: el vectorscopio
     };
     Lectura leer();       // hilo de mensajes
     void reiniciar();     // borra la integrada (al arrancar reproducción)
@@ -307,4 +310,7 @@ private:
     // Espectro: anillo mono para la FFT que se calcula al leer.
     std::vector<float> anilloFFT;
     size_t posFFT = 0;
+    // Vectorscopio: anillo estéreo diezmado ×16.
+    float anilloXY[2][PUNTOS_XY] = {};
+    int posXY = 0, diezmadoXY = 0;
 };

@@ -336,7 +336,7 @@ const char* EQOchoPlugin::xmlTypeName = "eqocho";
 EQOchoPlugin::EQOchoPlugin (te::PluginCreationInfo info) : te::Plugin (info)
 {
     auto um = getUndoManager();
-    const float porDefecto[BANDAS] = { 100.0f, 400.0f, 2500.0f, 8000.0f };
+    const float porDefecto[BANDAS] = { 60.0f, 120.0f, 250.0f, 500.0f, 1200.0f, 2500.0f, 5000.0f, 10000.0f };
 
     for (int b = 0; b < BANDAS; ++b)
     {
@@ -539,6 +539,15 @@ void MedidorPlugin::applyToBuffer (const te::PluginRenderContext& fc)
         anilloFFT[posFFT] = 0.5f * (muestras[0] + muestras[1]);
         posFFT = (posFFT + 1) % anilloFFT.size();
 
+        // El vectorscopio muestrea una de cada 16: le sobra para dibujar.
+        if (++diezmadoXY >= 16)
+        {
+            diezmadoXY = 0;
+            anilloXY[0][posXY] = muestras[0];
+            anilloXY[1][posXY] = muestras[1];
+            posXY = (posXY + 1) % PUNTOS_XY;
+        }
+
         energiaAcumulada += energia;
         muestrasAcumuladas += 1;
 
@@ -646,6 +655,13 @@ MedidorPlugin::Lectura MedidorPlugin::leer()
                 pico = juce::jmax (pico, bloque[k]);
             r.espectro[b] = juce::Decibels::gainToDecibels (pico / 256.0f, -100.0f);
         }
+    }
+
+    // El vectorscopio: los pares L,R del anillo tal cual (es una nube de puntos).
+    for (int j = 0; j < PUNTOS_XY; ++j)
+    {
+        r.xy[j * 2] = anilloXY[0][(posXY + j) % PUNTOS_XY];
+        r.xy[j * 2 + 1] = anilloXY[1][(posXY + j) % PUNTOS_XY];
     }
 
     // Integrada con la puerta relativa: media de los bloques que superan la

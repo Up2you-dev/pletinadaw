@@ -323,6 +323,8 @@ montarTransporte({
       orden('sesion.escenas', { numero: 4 }).catch((e) => aviso(e.message));
     }
   },
+  alTema: () => conmutarTema(),
+  alAyuda: () => conmutarAyuda(),
 });
 montarRail();
 montarArreglo(accionesArreglo);
@@ -478,6 +480,7 @@ if (puente) {
           pistas: datos.pistas || [],
           lufs: datos.lufs || null,
           espectro: datos.espectro || null,
+          xy: datos.xy || null,
           sesion: datos.sesion || null,
         },
       });
@@ -514,6 +517,55 @@ suscribir((_estado, cambios) => {
   if ('vistaSesion' in cambios) pintarSesion(true);
   if ('proyecto' in cambios || 'pistas' in cambios) montarRail();
 });
+
+/* ---------- tema y ayuda ---------- */
+
+// El tema claro existe y se elige; el oscuro es la casa. Se recuerda.
+try {
+  const tema = localStorage.getItem('pletina-tema');
+  if (tema) document.documentElement.dataset.theme = tema;
+} catch { /* sin almacenamiento, sin drama */ }
+
+function conmutarTema() {
+  const claro = document.documentElement.dataset.theme === 'light';
+  const nuevo = claro ? 'dark' : 'light';
+  document.documentElement.dataset.theme = nuevo;
+  try { localStorage.setItem('pletina-tema', nuevo); } catch { /* da igual */ }
+}
+
+const ATAJOS = [
+  ['Espacio', 'tocar / parar'],
+  ['R · Mayús+R', 'grabar en las pistas armadas · con claqueta'],
+  ['Inicio', 'ir al principio'],
+  ['T', 'dividir el clip bajo el cursor'],
+  ['Supr', 'borrar la selección'],
+  ['Ctrl+Z · Ctrl+Y', 'deshacer · rehacer'],
+  ['Ctrl+S', 'guardar el proyecto'],
+  ['Ctrl+D', 'duplicar los clips seleccionados'],
+  ['A', 'automatización de volumen (dibujar en la pista)'],
+  ['Tab', 'Session View'],
+  ['M · B', 'plegar la mesa · el rail'],
+  ['Ctrl+rueda', 'zoom del arreglo'],
+  ['Doble clic en el vacío', 'crear un clip MIDI'],
+  ['Doble clic en un clip MIDI', 'abrir el piano roll'],
+  ['Esc', 'cerrar el piano roll o esta ayuda'],
+  ['?', 'esta ayuda'],
+];
+
+function conmutarAyuda() {
+  const previa = $('#ayuda-atajos');
+  if (previa) return previa.remove();
+  const capa = document.createElement('div');
+  capa.id = 'ayuda-atajos';
+  capa.className = 'ayuda-atajos';
+  capa.innerHTML = `
+    <div class="ayuda-caja">
+      <div class="ayuda-cabeza"><span>Atajos de Pletina DAW</span><button class="cerrar">✕</button></div>
+      <dl>${ATAJOS.map(([tecla, que]) => `<dt>${tecla}</dt><dd>${que}</dd>`).join('')}</dl>
+    </div>`;
+  capa.addEventListener('click', (e) => { if (e.target === capa || e.target.matches('.cerrar')) capa.remove(); });
+  document.body.appendChild(capa);
+}
 
 /* ---------- atajos ---------- */
 
@@ -570,6 +622,10 @@ window.addEventListener('keydown', (evento) => {
   } else if (evento.key === 'Tab') {
     evento.preventDefault();
     $('#b-sesion')?.click();
+  } else if (evento.key === '?') {
+    conmutarAyuda();
+  } else if (evento.key === 'Escape') {
+    $('#ayuda-atajos')?.remove();
   }
 });
 
