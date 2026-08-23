@@ -36,6 +36,7 @@ juce_add_console_app(pletina-motor PRODUCT_NAME "pletina-motor")
 target_sources(pletina-motor PRIVATE
   src/main.cpp
   src/motor.cpp
+  src/efectos.cpp
   src/protocolo.cpp)
 
 target_compile_definitions(pletina-motor PRIVATE
@@ -44,6 +45,7 @@ target_compile_definitions(pletina-motor PRIVATE
   JUCE_WEB_BROWSER=0
   JUCE_MODAL_LOOPS_PERMITTED=1
   JUCE_STRICT_REFCOUNTEDPOINTER=1
+  JUCE_USE_MP3AUDIOFORMAT=1
   TRACKTION_ENABLE_TIMESTRETCH_SOUNDTOUCH=1)
 
 target_link_libraries(pletina-motor PRIVATE

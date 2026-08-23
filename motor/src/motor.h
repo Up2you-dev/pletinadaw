@@ -1,12 +1,16 @@
 /*  Pletina DAW · motor
     Copyright (C) 2026 Up2you — GPLv3: ver el LICENSE de la raíz.
 
-    Envoltorio de Tracktion Engine: un Edit, su transporte y los medidores,
-    con dos modos de audio. Con dispositivo real, JUCE abre lo que haya
-    (WASAPI/ASIO en Windows, ALSA en Linux). Con --sin-audio se usa la interfaz
-    hospedada de T.E. y una bomba propia que empuja bloques a ritmo de reloj:
-    así el transporte avanza y los medidores miden aunque no exista tarjeta
-    de sonido, que es el caso del CI y de los contenedores.
+    Envoltorio de Tracktion Engine: el proyecto (Edit), sus pistas y clips,
+    el transporte, la mezcla, la suite de efectos y los medidores, con dos
+    modos de audio. Con dispositivo real, JUCE abre lo que haya (WASAPI/ASIO
+    en Windows, ALSA en Linux). Con --sin-audio se usa la interfaz hospedada
+    de T.E. y una bomba propia que empuja bloques a ritmo de reloj: así el
+    transporte avanza y los medidores miden aunque no exista tarjeta de
+    sonido, que es el caso del CI y de los contenedores.
+
+    Tras cada orden que muta el proyecto se emite el evento `modelo` con la
+    foto completa: la interfaz no adivina, replica.
 */
 
 #pragma once
@@ -18,6 +22,19 @@
 #include <thread>
 
 namespace te = tracktion;
+
+class MedidorPlugin;
+
+/** Los límites de fábrica de T.E. se quedan cortos para un DAW de verdad
+    (4 plugins en el máster contando el volumen y el VU de serie): aquí se
+    ensanchan a algo que nadie debería rozar. */
+struct ComportamientoPletina : public te::EngineBehaviour
+{
+    te::EditLimits getEditLimits() override
+    {
+        return { 400, 3000, 16, 64, 64 };
+    }
+};
 
 class Motor : private juce::Timer
 {
@@ -36,33 +53,80 @@ public:
     // Órdenes del protocolo. Todas se llaman desde el hilo de mensajes.
     juce::var hola() const;
     juce::var listarDispositivos();
-    juce::var nuevoEdit();
-    juce::var cargarAudio (const juce::String& ruta);
+
+    // Proyecto: una carpeta con proyecto.tracktionedit y media/.
+    juce::var nuevoProyecto (const juce::String& carpeta);
+    juce::var abrirProyecto (const juce::String& carpeta);
+    juce::var guardarProyecto();
+    juce::var listarPistas();
+
+    // Pistas.
+    juce::var crearPista();
+    juce::var borrarPista (int indice);
+    juce::var renombrarPista (int indice, const juce::String& nombre);
+    juce::var mezclaPista (int indice, const juce::var& params);
+
+    // Clips.
+    juce::var importarClip (int pista, const juce::String& ruta, double inicio);
+    juce::var moverClip (const juce::String& id, double inicio, int pista);
+    juce::var recortarClip (const juce::String& id, double inicio, double fin);
+    juce::var dividirClip (const juce::String& id, double segundos);
+    juce::var borrarClip (const juce::String& id);
+    juce::var picosClip (const juce::String& id, int porSegundo);
+
+    // Cadenas de la suite (pista -1 = máster).
+    juce::var insertarPlugin (int pista, const juce::String& tipo, int indice);
+    juce::var quitarPlugin (int pista, int indice);
+    juce::var parametroPlugin (int pista, int indice, const juce::String& parametro, double valor);
+    juce::var activarPlugin (int pista, int indice, bool activo);
+
+    // Transporte y compañía.
     juce::var tocar();
     juce::var parar();
     juce::var irA (double segundos);
     juce::var estadoTransporte() const;
+    juce::var tempo (double bpm);
+    juce::var metronomo (bool activo);
+    juce::var bucle (bool activo, double inicio, double fin);
 
-    // Autoprueba para CI y contenedores: genera un WAV, lo carga, lo reproduce
-    // medio segundo con la bomba y comprueba que la posición avanza y suena.
-    // Devuelve 0 si todo bien; escribe el resultado como evento "prueba".
+    juce::var deshacer();
+    juce::var rehacer();
+
+    // Render offline del máster a WAV. Bloquea el hilo de mensajes lo que dure.
+    juce::var exportar (const juce::String& ruta);
+
+    // Autoprueba para CI y contenedores: reproduce, edita, exporta y verifica.
     int autoprueba();
 
 private:
     void timerCallback() override;
     void asegurarEdit();
+    void adoptarEdit (std::unique_ptr<te::Edit>, const juce::File& carpeta);
     void arrancarBomba();
     void pararBomba();
+    void emitirModelo();
+
+    te::AudioTrack* pista (int indice) const;
+    te::Clip* clip (const juce::String& id) const;
+    te::PluginList* cadena (int indice) const;      // -1 = máster
+    juce::Array<te::Plugin*> cadenaUsuario (int indice) const;
+    juce::File carpetaMedia() const;
+    void refrescarMedidoresDePista();
 
     Opciones opciones;
     std::function<void (const juce::String&)> emitir;
 
-    te::Engine engine { "PletinaMotor" };
+    te::Engine engine { std::make_unique<te::PropertyStorage> ("PletinaMotor"),
+                        std::make_unique<te::UIBehaviour>(),
+                        std::make_unique<ComportamientoPletina>() };
     std::unique_ptr<te::Edit> edit;
+    juce::File carpetaProyecto;                     // vacía = proyecto temporal
 
-    // Medidor colgado del máster; client es la ventanilla de lectura.
+    // Medidores: máster (F0) y uno por pista (F1), leídos por el timer.
     te::LevelMeterPlugin* medidorMaestro = nullptr;
-    te::LevelMeasurer::Client clienteMedidor;
+    te::LevelMeasurer::Client clienteMaestro;
+    std::vector<std::unique_ptr<te::LevelMeasurer::Client>> clientesPista;
+    std::vector<te::LevelMeterPlugin*> medidoresPista;
 
     // Bomba del modo sin audio.
     std::thread bomba;
