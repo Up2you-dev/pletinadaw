@@ -146,6 +146,11 @@ public:
     // motor no aguanta el ritmo del reloj o el modelo revienta.
     int pruebaCarga();
 
+    // Hostilidad: basura por el protocolo (JSON roto, métodos falsos, índices
+    // imposibles, cadenas kilométricas). Todo debe responderse con un error
+    // limpio y el motor debe seguir vivo y cuerdo al final.
+    int pruebaProtocolo();
+
 private:
     void timerCallback() override;
     void asegurarEdit();

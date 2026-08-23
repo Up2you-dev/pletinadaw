@@ -59,6 +59,8 @@ jobs:
         run: ./motor/build/pletina-motor_artefacts/Release/pletina-motor --prueba-efectos
       - name: carga de 100 pistas sonando
         run: ./motor/build/pletina-motor_artefacts/Release/pletina-motor --prueba-carga
+      - name: hostilidad del protocolo
+        run: ./motor/build/pletina-motor_artefacts/Release/pletina-motor --prueba-protocolo
 
   motor-windows:
     name: motor · Windows
@@ -79,6 +81,8 @@ jobs:
         run: motor/build/pletina-motor_artefacts/Release/pletina-motor.exe --prueba-efectos
       - name: carga de 100 pistas sonando
         run: motor/build/pletina-motor_artefacts/Release/pletina-motor.exe --prueba-carga
+      - name: hostilidad del protocolo
+        run: motor/build/pletina-motor_artefacts/Release/pletina-motor.exe --prueba-protocolo
       - uses: actions/upload-artifact@v4
         with:
           name: pletina-motor-windows

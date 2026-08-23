@@ -2479,6 +2479,90 @@ int Motor::pruebaCarga()
     return ok ? 0 : 1;
 }
 
+/* ============================================================ hostilidad */
+
+int Motor::pruebaProtocolo()
+{
+    // Cada línea hostil tiene que producir o bien una respuesta de error del
+    // protocolo, o bien silencio (si ni id traía), pero jamás una excepción
+    // sin atrapar ni un estado roto. Al final, una orden legítima confirma
+    // que el motor sigue entero.
+    const juce::String kilometrica = juce::String::repeatedString ("a", 300000);
+    const juce::StringArray hostiles = {
+        "",
+        "esto no es json",
+        "{",
+        "[]",
+        "42",
+        "null",
+        "{}",
+        "{\"id\": 1}",
+        "{\"metodo\": \"hola\"}",                                     // sin id: evento imposible, silencio
+        "{\"id\": 2, \"metodo\": \"no.existe\"}",
+        "{\"id\": 3, \"metodo\": \"\"}",
+        "{\"id\": 4, \"metodo\": 42}",
+        "{\"id\": 5, \"metodo\": \"pista.borrar\"}",                  // sin params
+        "{\"id\": 6, \"metodo\": \"pista.borrar\", \"params\": {\"pista\": -7}}",
+        "{\"id\": 7, \"metodo\": \"pista.borrar\", \"params\": {\"pista\": 99999}}",
+        "{\"id\": 8, \"metodo\": \"clip.importar\", \"params\": {\"pista\": 0, \"ruta\": \"/no/existe.wav\", \"inicio\": 0}}",
+        "{\"id\": 9, \"metodo\": \"clip.mover\", \"params\": {\"id\": \"nadie\", \"inicio\": -5}}",
+        "{\"id\": 10, \"metodo\": \"clip.warp\", \"params\": {\"id\": \"nadie\"}}",
+        "{\"id\": 11, \"metodo\": \"plugin.insertar\", \"params\": {\"pista\": 0, \"tipo\": \"troyano\"}}",
+        "{\"id\": 12, \"metodo\": \"plugin.insertar\", \"params\": {\"pista\": 0, \"tipo\": \"vst:falso\"}}",
+        "{\"id\": 13, \"metodo\": \"plugin.parametro\", \"params\": {\"pista\": 0, \"indice\": 55, \"parametro\": \"x\", \"valor\": 1e308}}",
+        "{\"id\": 14, \"metodo\": \"plugin.lateral\", \"params\": {\"pista\": 0, \"indice\": 0, \"fuente\": 3}}",
+        "{\"id\": 15, \"metodo\": \"transporte.tempo\", \"params\": {\"bpm\": -1}}",
+        "{\"id\": 16, \"metodo\": \"transporte.tempo\", \"params\": {\"bpm\": 1e100}}",
+        "{\"id\": 17, \"metodo\": \"transporte.irA\", \"params\": {\"segundos\": -1e18}}",
+        "{\"id\": 18, \"metodo\": \"sesion.lanzar\", \"params\": {\"escena\": 99}}",
+        "{\"id\": 19, \"metodo\": \"sesion.poner\", \"params\": {\"pista\": 0, \"escena\": 0, \"desdeClip\": \"nadie\"}}",
+        "{\"id\": 20, \"metodo\": \"clip.midi.notas\", \"params\": {\"id\": \"nadie\", \"notas\": 7}}",
+        "{\"id\": 21, \"metodo\": \"clip.midi.cuantizar\", \"params\": {\"id\": \"nadie\", \"division\": \"1/pi\"}}",
+        "{\"id\": 22, \"metodo\": \"render.exportar\", \"params\": {\"ruta\": \"/carpeta/que/no/existe/x.wav\"}}",
+        "{\"id\": 23, \"metodo\": \"previa.tocar\", \"params\": {\"ruta\": \"/no/existe.flac\"}}",
+        "{\"id\": 24, \"metodo\": \"proyecto.abrir\", \"params\": {\"ruta\": \"" + kilometrica + "\"}}",
+        "{\"id\": 25, \"metodo\": \"pista.renombrar\", \"params\": {\"pista\": 0, \"nombre\": \"" + kilometrica + "\"}}",
+        "{\"id\": 26, \"metodo\": \"dispositivos.tono\", \"params\": {\"frecuencia\": \"hola\", \"nota\": 900}}",
+        "{\"id\": 27, \"metodo\": \"pista.armar\", \"params\": {\"pista\": 0, \"activo\": true, \"entrada\": -99}}",
+        "{\"id\": 28, \"metodo\": \"automatizacion.puntos\", \"params\": {\"pista\": 0, \"parametro\": \"fantasma\", \"puntos\": []}}",
+    };
+
+    int fallos = 0;
+    for (const auto& linea : hostiles)
+    {
+        bool salir = false;
+        juce::String respuesta;
+        try
+        {
+            respuesta = protocolo::procesarLinea (*this, linea, salir);
+        }
+        catch (...)
+        {
+            std::cerr << "  MAL   excepción sin atrapar con: " << linea.substring (0, 80) << "\n";
+            ++fallos;
+            continue;
+        }
+        if (salir)
+        {
+            std::cerr << "  MAL   una línea hostil ha apagado el motor: " << linea.substring (0, 80) << "\n";
+            ++fallos;
+        }
+    }
+
+    // Y tras el chaparrón, la vida sigue: una orden legítima con respuesta sana.
+    bool salir = false;
+    const auto viva = protocolo::procesarLinea (*this, "{\"id\": 900, \"metodo\": \"pistas.listar\"}", salir);
+    if (! viva.contains ("\"resultado\"") || viva.contains ("\"error\""))
+    {
+        std::cerr << "  MAL   el motor no responde sano tras la tormenta\n";
+        ++fallos;
+    }
+
+    std::cerr << (fallos == 0 ? "hostilidad: el protocolo aguanta la basura\n"
+                              : "hostilidad: el protocolo se rompe\n");
+    return fallos == 0 ? 0 : 1;
+}
+
 /* ============================================================ autoprueba */
 
 int Motor::autoprueba()

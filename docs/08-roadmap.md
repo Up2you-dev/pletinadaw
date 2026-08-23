@@ -264,6 +264,10 @@ Lo que separa "funciona" de "se recomienda".
       determinista, ±0,9 donde hay LFO o ruido): un cambio de sonido no
       intencionado rompe el CI. (Si Windows enseña deltas de coma flotante
       mayores, la tolerancia se ajusta con esos datos en la mano.)
+- [x] **Hostilidad del protocolo** (`--prueba-protocolo`): 34 líneas de
+      basura por stdin —JSON roto, métodos falsos, índices imposibles,
+      cadenas de 300 KB, números desbocados— y todas tienen que acabar en un
+      error limpio, con el motor vivo y respondiendo sano después. En CI.
 - [ ] Actualizador que avisa (no que fuerza).
 - [ ] Beta pública, triaje, y corte de v1.0.
 
