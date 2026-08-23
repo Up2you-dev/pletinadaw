@@ -83,10 +83,20 @@ function encontrar(x, y) {
   if (x < CABECERA_W) return { zona: 'cabecera', fila, pista };
 
   const s = segundosDeX(x);
+  const yEnFila = (y - REGLA_H) % altoPistaActual();
   for (const clip of pista.clips) {
     if (s < clip.inicio || s > clip.inicio + clip.duracion) continue;
     const x0 = xDeSegundos(clip.inicio);
     const x1 = xDeSegundos(clip.inicio + clip.duracion);
+
+    // Las asas de fundido viven en la franja alta del clip.
+    if (yEnFila <= 20) {
+      const hIzq = x0 + (clip.entradaFundido || 0) * estado.pxPorSegundo;
+      const hDer = x1 - (clip.salidaFundido || 0) * estado.pxPorSegundo;
+      if (Math.abs(x - hIzq) <= 7) return { zona: 'fundidoIzq', fila, pista, clip };
+      if (Math.abs(x - hDer) <= 7) return { zona: 'fundidoDer', fila, pista, clip };
+    }
+
     if (x - x0 <= BORDE_PX) return { zona: 'bordeIzq', fila, pista, clip };
     if (x1 - x <= BORDE_PX) return { zona: 'bordeDer', fila, pista, clip };
     return { zona: 'clip', fila, pista, clip };
@@ -171,9 +181,15 @@ function bajar(evento) {
   const donde = encontrar(x, y);
 
   if (donde.zona === 'regla') {
-    gesto = { tipo: 'regla' };
+    // La mitad alta de la regla dibuja el bucle; la baja, busca.
+    if (y <= REGLA_H * 0.5) {
+      const inicio = iman(Math.max(0, segundosDeX(x)), evento.altKey);
+      gesto = { tipo: 'bucle', bucleInicio: inicio, bucleFin: inicio };
+    } else {
+      gesto = { tipo: 'regla' };
+      acciones.alIrA(iman(Math.max(0, segundosDeX(x)), evento.altKey));
+    }
     canvas.setPointerCapture(evento.pointerId);
-    acciones.alIrA(iman(Math.max(0, segundosDeX(x)), evento.altKey));
     return;
   }
 
@@ -184,6 +200,22 @@ function bajar(evento) {
 
   if (donde.zona === 'carril' || donde.zona === 'vacio') {
     cambiar({ seleccion: new Set(), pistaSeleccionada: donde.fila ?? estado.pistaSeleccionada });
+    return;
+  }
+
+  if (donde.zona === 'fundidoIzq' || donde.zona === 'fundidoDer') {
+    const { clip, fila } = donde;
+    gesto = {
+      tipo: donde.zona,
+      clip,
+      filaOrigen: fila,
+      filaDestino: fila,
+      sX: x,
+      fundidoEntrada: clip.entradaFundido || 0,
+      fundidoSalida: clip.salidaFundido || 0,
+      movido: false,
+    };
+    canvas.setPointerCapture(evento.pointerId);
     return;
   }
 
@@ -217,6 +249,7 @@ function mover(evento) {
   if (!gesto) {
     const donde = encontrar(x, y);
     canvas.style.cursor = donde.zona === 'bordeIzq' || donde.zona === 'bordeDer' ? 'ew-resize'
+                       : donde.zona === 'fundidoIzq' || donde.zona === 'fundidoDer' ? 'col-resize'
                        : donde.zona === 'clip' ? 'grab'
                        : donde.zona === 'regla' ? 'text' : 'default';
     return;
@@ -227,8 +260,24 @@ function mover(evento) {
     return;
   }
 
+  if (gesto.tipo === 'bucle') {
+    gesto.bucleFin = iman(Math.max(0, segundosDeX(x)), evento.altKey);
+    return;
+  }
+
   const dxSegundos = (x - gesto.sX) / estado.pxPorSegundo;
   gesto.movido = gesto.movido || Math.abs(x - gesto.sX) > 3;
+
+  if (gesto.tipo === 'fundidoIzq') {
+    gesto.fundidoEntrada = Math.max(0, Math.min(gesto.clip.duracion,
+      (gesto.clip.entradaFundido || 0) + dxSegundos));
+    return;
+  }
+  if (gesto.tipo === 'fundidoDer') {
+    gesto.fundidoSalida = Math.max(0, Math.min(gesto.clip.duracion,
+      (gesto.clip.salidaFundido || 0) - dxSegundos));
+    return;
+  }
 
   if (gesto.tipo === 'mover') {
     gesto.inicioNuevo = iman(Math.max(0, gesto.inicio0 + dxSegundos), evento.altKey);
@@ -248,7 +297,19 @@ function soltar() {
   gesto = null;
   canvas.style.cursor = 'default';
 
+  if (g.tipo === 'bucle') {
+    const inicio = Math.min(g.bucleInicio, g.bucleFin);
+    const fin = Math.max(g.bucleInicio, g.bucleFin);
+    if (fin - inicio > 0.01) acciones.alBucle(true, inicio, fin);
+    return;
+  }
+
   if (g.tipo === 'regla' || !g.movido || !g.clip) return;
+
+  if (g.tipo === 'fundidoIzq' || g.tipo === 'fundidoDer') {
+    acciones.alFundidos(g.clip, g.fundidoEntrada, g.fundidoSalida);
+    return;
+  }
 
   if (g.tipo === 'mover') {
     acciones.alMoverClip(g.clip, g.inicioNuevo, g.filaDestino !== g.filaOrigen ? g.filaDestino : -1, g.filaOrigen);
@@ -376,19 +437,54 @@ export function pintar(ahora) {
       ctx.fillStyle = color.texto;
       ctx.font = '600 11px Karla, sans-serif';
       ctx.fillText(clip.nombre, x0 + 8, yClip + 11);
+
+      // Fundidos: curva sombreada en cada extremo y su asa arriba.
+      const enFundido = gesto && (gesto.tipo === 'fundidoIzq' || gesto.tipo === 'fundidoDer')
+        && gesto.clip && gesto.clip.id === clip.id;
+      const fEntrada = enFundido ? gesto.fundidoEntrada : (clip.entradaFundido || 0);
+      const fSalida = enFundido ? gesto.fundidoSalida : (clip.salidaFundido || 0);
+      const x1 = x0 + w;
+
+      ctx.fillStyle = `${color.fondo}99`;
+      ctx.strokeStyle = color.apagado;
+      if (fEntrada > 0.005) {
+        const xf = x0 + fEntrada * pxPorSegundo;
+        ctx.beginPath();
+        ctx.moveTo(x0, yClip);
+        ctx.lineTo(xf, yClip);
+        ctx.quadraticCurveTo(x0 + (xf - x0) * 0.3, yClip + hClip * 0.25, x0, yClip + hClip);
+        ctx.closePath();
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(x0, yClip + hClip);
+        ctx.quadraticCurveTo(x0 + (xf - x0) * 0.3, yClip + hClip * 0.25, xf, yClip);
+        ctx.stroke();
+      }
+      if (fSalida > 0.005) {
+        const xf = x1 - fSalida * pxPorSegundo;
+        ctx.beginPath();
+        ctx.moveTo(x1, yClip);
+        ctx.lineTo(xf, yClip);
+        ctx.quadraticCurveTo(x1 - (x1 - xf) * 0.3, yClip + hClip * 0.25, x1, yClip + hClip);
+        ctx.closePath();
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(x1, yClip + hClip);
+        ctx.quadraticCurveTo(x1 - (x1 - xf) * 0.3, yClip + hClip * 0.25, xf, yClip);
+        ctx.stroke();
+      }
+      if (elegido || enFundido) {
+        ctx.fillStyle = color.texto;
+        for (const xAsa of [x0 + fEntrada * pxPorSegundo, x1 - fSalida * pxPorSegundo]) {
+          ctx.beginPath();
+          ctx.arc(xAsa, yClip + 6, 3.2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
       ctx.restore();
     }
   });
-
-  /* --- bucle sobre la regla --- */
-  if (bucle.activo && bucle.fin > bucle.inicio) {
-    const xa = Math.max(CABECERA_W, xDeSegundos(bucle.inicio));
-    const xb = Math.min(ancho, xDeSegundos(bucle.fin));
-    if (xb > xa) {
-      ctx.fillStyle = `${color.acento}33`;
-      ctx.fillRect(xa, 0, xb - xa, REGLA_H);
-    }
-  }
 
   /* --- regla y cabeceras encima de todo --- */
   ctx.fillStyle = color.panel;
@@ -405,6 +501,21 @@ export function pintar(ahora) {
     ctx.beginPath(); ctx.moveTo(x + 0.5, REGLA_H - 8); ctx.lineTo(x + 0.5, REGLA_H); ctx.stroke();
     ctx.fillStyle = color.apagado;
     ctx.fillText(String(c + 1), x + 5, REGLA_H / 2 + 1);
+  }
+
+  /* --- bucle sobre la regla (con la previsualización del arrastre) --- */
+  const bucleVisible = gesto && gesto.tipo === 'bucle'
+    ? { activo: true, inicio: Math.min(gesto.bucleInicio, gesto.bucleFin), fin: Math.max(gesto.bucleInicio, gesto.bucleFin) }
+    : bucle;
+  if (bucleVisible.activo && bucleVisible.fin > bucleVisible.inicio) {
+    const xa = Math.max(CABECERA_W, xDeSegundos(bucleVisible.inicio));
+    const xb = Math.min(ancho, xDeSegundos(bucleVisible.fin));
+    if (xb > xa) {
+      ctx.fillStyle = `${color.acento}40`;
+      ctx.fillRect(xa, 0, xb - xa, REGLA_H * 0.5);
+      ctx.fillStyle = color.acento;
+      ctx.fillRect(xa, REGLA_H * 0.5 - 2, xb - xa, 2);
+    }
   }
 
   ctx.fillStyle = color.panel;

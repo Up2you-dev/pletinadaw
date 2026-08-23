@@ -180,6 +180,22 @@ const accionesArreglo = {
     cambiar({ pistaSeleccionada: fila });
   },
 
+  alFundidos(clip, entrada, salida) {
+    if (conectado()) orden('clip.fundidos', { id: clip.id, entrada, salida }).catch((e) => aviso(e.message));
+    else {
+      const pistas = estado.pistas.map((p) => ({
+        ...p,
+        clips: p.clips.map((c) => (c.id === clip.id ? { ...c, entradaFundido: entrada, salidaFundido: salida } : c)),
+      }));
+      cambiar({ pistas });
+    }
+  },
+
+  alBucle(activo, inicio, fin) {
+    cambiar({ bucle: { activo, inicio, fin } });
+    if (conectado()) orden('transporte.bucle', { activo, inicio, fin }).catch((e) => aviso(e.message));
+  },
+
   alRenombrarPista(fila, nombreActual, caja) {
     const entrada = document.createElement('input');
     entrada.className = 'renombrar';
@@ -252,6 +268,11 @@ montarTransporte({
   alMetronomo: () => {
     if (!conectado()) return soloConMotor();
     orden('transporte.metronomo', { activo: !estado.metronomo }).catch((e) => aviso(e.message));
+  },
+  alCiclo: () => {
+    const { bucle } = estado;
+    if (bucle.fin - bucle.inicio < 0.01) return aviso('Dibuja primero el bucle arrastrando por la mitad alta de la regla.');
+    accionesArreglo.alBucle(!bucle.activo, bucle.inicio, bucle.fin);
   },
   alCambiarTempo: (bpm) => {
     if (conectado()) orden('transporte.tempo', { bpm }).catch((e) => aviso(e.message));
@@ -371,6 +392,10 @@ window.addEventListener('keydown', (evento) => {
     conmutar();
   } else if (evento.code === 'Home') {
     irA(0);
+  } else if (ctrl && evento.key.toLowerCase() === 'd') {
+    evento.preventDefault();
+    if (!conectado()) return soloConMotor();
+    for (const id of [...estado.seleccion]) orden('clip.duplicar', { id }).catch((e) => aviso(e.message));
   } else if (evento.key === 'Delete' || evento.key === 'Backspace') {
     borrarSeleccion();
   } else if (evento.key === 't' || evento.key === 'T') {

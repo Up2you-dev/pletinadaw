@@ -121,10 +121,14 @@ app.whenReady().then(() => {
           const wav = path.join(app.getPath('temp'), 'pletinadaw-humo.wav');
           await escribirWavDePrueba(wav, 2);
           const clip = await motor.orden('clip.importar', { pista: 0, ruta: wav, inicio: 0 });
-          await motor.orden('clip.importar', { pista: 1, ruta: wav, inicio: 1 });
+          const otro = await motor.orden('clip.importar', { pista: 1, ruta: wav, inicio: 1 });
           await motor.orden('clip.dividir', { id: clip.id, segundos: 1 });
+          await motor.orden('clip.fundidos', { id: otro.id, entrada: 0.4, salida: 0.5 });
           await motor.orden('plugin.insertar', { pista: -1, tipo: 'medidor' });
           await motor.orden('plugin.insertar', { pista: -1, tipo: 'techo' });
+          await motor.orden('plugin.insertar', { pista: 1, tipo: 'placa' });
+          await motor.orden('plugin.insertar', { pista: 1, tipo: 'delay', indice: 1 });
+          await motor.orden('transporte.bucle', { activo: true, inicio: 0, fin: 3 });
           await motor.orden('transporte.tocar');
         } catch {
           // sin motor, el humo captura la maqueta: también vale

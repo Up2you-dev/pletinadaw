@@ -5,14 +5,14 @@
  * existe en el esqueleto.
  */
 
-/** Fase del roadmap ya construida: lo de fase ≤ FASE_ACTUAL existe de verdad. */
-export const FASE_ACTUAL = 1;
+/** Lo que existe de verdad lleva `lista: true` (y su `tipo` del motor);
+    el resto enseña la fase del roadmap en la que llegará. */
 
 export const CATALOGO = [
   {
     grupo: 'Ecualizadores',
     dispositivos: [
-      { nombre: 'EQ Ocho', detalle: 'paramétrico con analizador', fase: 1 },
+      { nombre: 'EQ Ocho', detalle: 'paramétrico con analizador', fase: 1, tipo: 'eqocho', lista: true },
       { nombre: 'EQ Dinámico', detalle: 'bandas que comprimen', fase: 2 },
       { nombre: 'Balancín', detalle: 'tilt de un mando', fase: 2 },
       { nombre: 'Válvulas', detalle: 'estilo Pultec', fase: 3 },
@@ -23,10 +23,10 @@ export const CATALOGO = [
   {
     grupo: 'Dinámica',
     dispositivos: [
-      { nombre: 'Compresor', detalle: 'VCA limpio', fase: 1 },
+      { nombre: 'Compresor', detalle: 'VCA limpio', fase: 1, tipo: 'compresor', lista: true },
       { nombre: 'Pegamento', detalle: 'bus estilo SSL', fase: 2 },
       { nombre: 'Multibanda', detalle: 'compresión por bandas', fase: 2 },
-      { nombre: 'Puerta', detalle: 'gate con sidechain', fase: 2 },
+      { nombre: 'Puerta', detalle: 'gate con sidechain', fase: 2, tipo: 'puerta', lista: true },
       { nombre: 'De-eser', detalle: 'las eses a raya', fase: 2 },
       { nombre: 'Remache', detalle: 'FET estilo 1176', fase: 3 },
       { nombre: 'Ópto', detalle: 'estilo LA-2A', fase: 3 },
@@ -36,7 +36,7 @@ export const CATALOGO = [
   {
     grupo: 'Reverbs',
     dispositivos: [
-      { nombre: 'Placa', detalle: 'plate densa', fase: 2 },
+      { nombre: 'Placa', detalle: 'plate densa', fase: 2, tipo: 'placa', lista: true },
       { nombre: 'Sala', detalle: 'algorítmica FDN', fase: 2 },
       { nombre: 'Convolución', detalle: 'IRs de verdad', fase: 2 },
       { nombre: 'Muelle', detalle: 'spring con su boing', fase: 3 },
@@ -46,7 +46,7 @@ export const CATALOGO = [
   {
     grupo: 'Delays y modulación',
     dispositivos: [
-      { nombre: 'Delay', detalle: 'digital al tempo', fase: 2 },
+      { nombre: 'Delay', detalle: 'digital al tempo', fase: 2, tipo: 'delay', lista: true },
       { nombre: 'Eco', detalle: 'cinta estilo RE-201', fase: 3 },
       { nombre: 'Multitap', detalle: 'taps dibujables', fase: 3 },
       { nombre: 'Coro', detalle: 'y flanger y fase', fase: 3 },
@@ -65,8 +65,8 @@ export const CATALOGO = [
   {
     grupo: 'Mastering',
     dispositivos: [
-      { nombre: 'Techo', detalle: 'limitador true-peak', fase: 1 },
-      { nombre: 'Medidor', detalle: 'LUFS, espectro, fase', fase: 1 },
+      { nombre: 'Techo', detalle: 'limitador true-peak', fase: 1, tipo: 'techo', lista: true },
+      { nombre: 'Medidor', detalle: 'LUFS, espectro, fase', fase: 1, tipo: 'medidor', lista: true },
       { nombre: 'Anchura', detalle: 'imager M/S', fase: 2 },
       { nombre: 'Chispa', detalle: 'exciter por bandas', fase: 2 },
       { nombre: 'Dither', detalle: 'TPDF con shaping', fase: 2 },
@@ -75,7 +75,7 @@ export const CATALOGO = [
   {
     grupo: 'Utilidades',
     dispositivos: [
-      { nombre: 'Utilidad', detalle: 'ganancia, fase, anchura', fase: 1 },
+      { nombre: 'Utilidad', detalle: 'ganancia, fase, anchura', fase: 1, tipo: 'utilidad', lista: true },
       { nombre: 'Oscilador', detalle: 'señal de prueba', fase: 2 },
       { nombre: 'Afinador', detalle: 'cromático', fase: 4 },
     ],
@@ -89,6 +89,9 @@ export const CATALOGO = [
     ],
   },
 ];
+
+/** Lo que ya se puede insertar hoy: las entradas del catálogo con `lista`. */
+export const INSERTABLES = CATALOGO.flatMap((g) => g.dispositivos.filter((d) => d.lista));
 
 /** La cadena de mastering de fábrica que la tira enseña sobre el máster. */
 export const CADENA_MAESTRA = ['EQ Ocho', 'Compresor', 'Techo', 'Medidor'];

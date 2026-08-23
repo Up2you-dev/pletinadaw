@@ -35,7 +35,8 @@ De maqueta a editor de verdad: la primera vez que alguien monta un tema.
 - [x] Arrangement real: mover (también entre pistas), recortar por los
       bordes, dividir (T), borrar, imán a rejilla con zoom adaptativo,
       selección (con Mayús para acumular).
-- [ ] Pendiente de arrangement: duplicar, fundidos y crossfade, loop de
+- [x] Duplicar (Ctrl+D) y fundidos de entrada/salida con asas arrastrables.
+- [ ] Pendiente de arrangement: crossfade automático al solapar, loop de
       clip, selección por goma.
 - [x] Formas de onda reales por picos calculados por el motor (por archivo
       fuente, con caché en la interfaz).
@@ -50,10 +51,10 @@ De maqueta a editor de verdad: la primera vez que alguien monta un tema.
       (lookahead) y Medidor (LUFS M/S/I según BS.1770 + pico)**. Pendiente:
       el analizador de espectro del EQ (F2).
 - [x] Utilidad (ganancia/fase/anchura/mono).
-- [x] Transporte: loop de proyecto (protocolo), metrónomo, tempo.
-      Pendiente: interfaz para dibujar el bucle en la regla.
-- [x] Proyecto: carpeta con media/, guardar/abrir. Pendiente: autoguardado
-      y recuperación.
+- [x] Transporte: bucle dibujable en la mitad alta de la regla con botón de
+      ciclo, metrónomo, tempo.
+- [x] Proyecto: carpeta con media/, guardar/abrir y autoguardado cada dos
+      minutos con la escritura segura de T.E.
 - [x] Deshacer/rehacer (Ctrl+Z / Ctrl+Y) por transacciones.
 - [x] Exportar WAV del máster. Pendiente: MP3 (necesita LAME) y stems (F2).
 - [x] Atajos: espacio, Inicio, T, Supr, Ctrl+Z/Y/S, M, B, zoom con Ctrl+rueda.
@@ -64,10 +65,14 @@ reabre idéntico. La autoprueba del motor (`--prueba`) ya cubre el ciclo
 entero en CI: proyecto → importar → dividir/mover/recortar → deshacer →
 suite en el máster → sonar → exportar → guardar → reabrir.
 
-## F2 · Mastering y mezcla a fondo — prioridad declarada
+## F2 · Mastering y mezcla a fondo — prioridad declarada · EN CURSO
 
 La suite se hace adulta. Es la fase que define el carácter del producto.
 
+- [x] Primeras piezas ya sonando: **Placa** (reverb FDN de 8 líneas con
+      difusión y amortiguación), **Delay** sincronizado al tempo con
+      realimentación filtrada y ping-pong, y **Puerta** con histéresis y
+      retención.
 - [ ] Cadena de mastering completa: **Multibanda, Anchura (imager M/S),
       Chispa (exciter), Óxido (cinta), Techo true-peak con estilos de
       release, Dither con noise shaping**.

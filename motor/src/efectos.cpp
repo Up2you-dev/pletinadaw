@@ -25,6 +25,9 @@ void registrarEfectos (te::Engine& engine)
     plugins.createBuiltInType<TechoPlugin>();
     plugins.createBuiltInType<EQOchoPlugin>();
     plugins.createBuiltInType<MedidorPlugin>();
+    plugins.createBuiltInType<PlacaPlugin>();
+    plugins.createBuiltInType<DelayPlugin>();
+    plugins.createBuiltInType<PuertaPlugin>();
 }
 
 bool esPluginDeSerie (const te::Plugin& plugin)
@@ -552,4 +555,355 @@ void MedidorPlugin::reiniciar()
     muestrasAcumuladas = 0;
     posBloque = 0;
     std::fill (bloques100.begin(), bloques100.end(), 0.0);
+}
+
+/* ================================================================= Placa */
+
+const char* PlacaPlugin::xmlTypeName = "placa";
+
+PlacaPlugin::PlacaPlugin (te::PluginCreationInfo info) : te::Plugin (info)
+{
+    auto um = getUndoManager();
+    predelay.referTo (state, "predelay", um, 12.0f);
+    decaimiento.referTo (state, "decaimiento", um, 2.2f);
+    amortiguacion.referTo (state, "amortiguacion", um, 6500.0f);
+    mezcla.referTo (state, "mezcla", um, 0.35f);
+
+    pPredelay = addParam ("predelay", TRANS("Predelay"), { 0.0f, 120.0f });
+    pDecaimiento = addParam ("decaimiento", TRANS("Decaimiento"), { 0.2f, 12.0f, 0.0f, 0.5f });
+    pAmortiguacion = addParam ("amortiguacion", juce::String::fromUTF8 ("Amortiguaci\xc3\xb3n"), { 1000.0f, 16000.0f, 0.0f, 0.5f });
+    pMezcla = addParam ("mezcla", TRANS("Mezcla"), { 0.0f, 1.0f });
+
+    pPredelay->attachToCurrentValue (predelay);
+    pDecaimiento->attachToCurrentValue (decaimiento);
+    pAmortiguacion->attachToCurrentValue (amortiguacion);
+    pMezcla->attachToCurrentValue (mezcla);
+}
+
+PlacaPlugin::~PlacaPlugin()
+{
+    notifyListenersOfDeletion();
+    for (auto p : { &pPredelay, &pDecaimiento, &pAmortiguacion, &pMezcla }) (*p)->detachFromCurrentValue();
+}
+
+namespace
+{
+    // Longitudes primas entre sí, en milisegundos: la receta clásica de FDN.
+    constexpr double MS_LINEAS[8] = { 29.7, 37.1, 41.1, 43.7, 53.3, 59.0, 61.3, 68.9 };
+    constexpr double MS_DIFUSORES[4] = { 4.7, 3.6, 12.7, 9.3 };
+}
+
+void PlacaPlugin::initialise (const te::PluginInitialisationInfo& info)
+{
+    frecuencia = info.sampleRate;
+
+    for (int i = 0; i < LINEAS; ++i)
+    {
+        lineas[i].assign ((size_t) std::lround (MS_LINEAS[i] / 1000.0 * frecuencia) + 1, 0.0f);
+        posLinea[i] = 0;
+        pasoBajo[i] = 0.0f;
+    }
+    for (int i = 0; i < 4; ++i)
+    {
+        difusores[i].assign ((size_t) std::lround (MS_DIFUSORES[i] / 1000.0 * frecuencia) + 1, 0.0f);
+        posDifusor[i] = 0;
+    }
+    for (int c = 0; c < 2; ++c)
+        preLinea[c].assign ((size_t) std::lround (0.15 * frecuencia) + 1, 0.0f);
+    posPre = 0;
+}
+
+void PlacaPlugin::applyToBuffer (const te::PluginRenderContext& fc)
+{
+    if (! isEnabled() || fc.destBuffer == nullptr)
+        return;
+
+    auto& buffer = *fc.destBuffer;
+    const int inicio = fc.bufferStartSample;
+    const int n = fc.bufferNumSamples;
+    const int canales = juce::jmin (2, buffer.getNumChannels());
+
+    const float humedo = pMezcla->getCurrentValue();
+    const float seco = 1.0f - humedo;
+    const int muestrasPre = juce::jlimit (1, (int) preLinea[0].size() - 1,
+                                          (int) std::lround (pPredelay->getCurrentValue() / 1000.0 * frecuencia));
+    const float rt60 = juce::jmax (0.2f, pDecaimiento->getCurrentValue());
+    const float corte = pAmortiguacion->getCurrentValue();
+    const float cAmortiguacion = 1.0f - std::exp (-2.0f * juce::MathConstants<float>::pi * corte / (float) frecuencia);
+
+    // Ganancia por línea para el RT60 pedido: g = 10^(-3·t_linea / rt60).
+    float ganancias[LINEAS];
+    for (int i = 0; i < LINEAS; ++i)
+        ganancias[i] = std::pow (10.0f, -3.0f * (float) (MS_LINEAS[i] / 1000.0) / rt60);
+
+    float* datos[2] = { buffer.getWritePointer (0, inicio),
+                        canales > 1 ? buffer.getWritePointer (1, inicio) : nullptr };
+
+    for (int i = 0; i < n; ++i)
+    {
+        const float entradaIzq = datos[0][i];
+        const float entradaDer = datos[1] != nullptr ? datos[1][i] : entradaIzq;
+
+        // Predelay por canal.
+        preLinea[0][(size_t) posPre] = entradaIzq;
+        preLinea[1][(size_t) posPre] = entradaDer;
+        const int lecturaPre = (int) ((posPre - muestrasPre + (int) preLinea[0].size()) % (int) preLinea[0].size());
+        float izq = preLinea[0][(size_t) lecturaPre];
+        float der = preLinea[1][(size_t) lecturaPre];
+        posPre = (posPre + 1) % (int) preLinea[0].size();
+
+        // Difusión de entrada: dos allpass en serie por canal (g = 0.68).
+        auto allpass = [this] (int cual, float x)
+        {
+            auto& linea = difusores[cual];
+            const float leida = linea[(size_t) posDifusor[cual]];
+            const float g = 0.68f;
+            const float v = x - g * leida;
+            linea[(size_t) posDifusor[cual]] = v;
+            posDifusor[cual] = (posDifusor[cual] + 1) % (int) linea.size();
+            return leida + g * v;
+        };
+        izq = allpass (1, allpass (0, izq));
+        der = allpass (3, allpass (2, der));
+
+        // Salidas de las 8 líneas, con su amortiguación de agudos.
+        float salidas[LINEAS];
+        float suma = 0.0f;
+        for (int l = 0; l < LINEAS; ++l)
+        {
+            const float leida = lineas[l][(size_t) posLinea[l]];
+            pasoBajo[l] += cAmortiguacion * (leida - pasoBajo[l]);
+            salidas[l] = pasoBajo[l] * ganancias[l];
+            suma += salidas[l];
+        }
+
+        // Matriz de Householder: y_i = x_i − (2/N)·Σx. Energía conservada.
+        const float media2 = suma * (2.0f / LINEAS);
+        const float alimentacion[2] = { izq, der };
+        for (int l = 0; l < LINEAS; ++l)
+        {
+            const float realimentada = salidas[l] - media2 + alimentacion[l & 1] * 0.35f;
+            lineas[l][(size_t) posLinea[l]] = realimentada;
+            posLinea[l] = (posLinea[l] + 1) % (int) lineas[l].size();
+        }
+
+        // Toma estéreo: mitades cruzadas con signos alternos para decorrelar.
+        const float placaIzq = salidas[0] - salidas[2] + salidas[4] - salidas[6];
+        const float placaDer = salidas[1] - salidas[3] + salidas[5] - salidas[7];
+
+        datos[0][i] = seco * entradaIzq + humedo * placaIzq;
+        if (datos[1] != nullptr) datos[1][i] = seco * entradaDer + humedo * placaDer;
+    }
+}
+
+void PlacaPlugin::restorePluginStateFromValueTree (const juce::ValueTree& v)
+{
+    te::copyPropertiesToCachedValues (v, predelay, decaimiento, amortiguacion, mezcla);
+    for (auto p : getAutomatableParameters()) p->updateFromAttachedValue();
+}
+
+/* ================================================================= Delay */
+
+const char* DelayPlugin::xmlTypeName = "delay";
+
+namespace
+{
+    // Fracciones de redonda: 1/16, 1/8T, 1/16., 1/8, 1/4T, 1/8., 1/4, 1/2, 1/1.
+    constexpr double FRACCIONES[9] = { 0.0625, 0.0833333, 0.09375, 0.125, 0.1666667, 0.1875, 0.25, 0.5, 1.0 };
+}
+
+DelayPlugin::DelayPlugin (te::PluginCreationInfo info) : te::Plugin (info)
+{
+    auto um = getUndoManager();
+    tiempo.referTo (state, "tiempo", um, 6.0f);
+    realimentacion.referTo (state, "realimentacion", um, 0.35f);
+    tono.referTo (state, "tono", um, 6000.0f);
+    pingpong.referTo (state, "pingpong", um, 0.0f);
+    mezcla.referTo (state, "mezcla", um, 0.3f);
+
+    pTiempo = addParam ("tiempo", TRANS("Tiempo"), { 0.0f, 8.0f, 1.0f });
+    pRealimentacion = addParam ("realimentacion", juce::String::fromUTF8 ("Realimentaci\xc3\xb3n"), { 0.0f, 0.95f });
+    pTono = addParam ("tono", TRANS("Tono"), { 500.0f, 16000.0f, 0.0f, 0.5f });
+    pPingpong = addParam ("pingpong", TRANS("Ping-pong"), { 0.0f, 1.0f });
+    pMezcla = addParam ("mezcla", TRANS("Mezcla"), { 0.0f, 1.0f });
+
+    pTiempo->attachToCurrentValue (tiempo);
+    pRealimentacion->attachToCurrentValue (realimentacion);
+    pTono->attachToCurrentValue (tono);
+    pPingpong->attachToCurrentValue (pingpong);
+    pMezcla->attachToCurrentValue (mezcla);
+}
+
+DelayPlugin::~DelayPlugin()
+{
+    notifyListenersOfDeletion();
+    for (auto p : { &pTiempo, &pRealimentacion, &pTono, &pPingpong, &pMezcla }) (*p)->detachFromCurrentValue();
+}
+
+void DelayPlugin::initialise (const te::PluginInitialisationInfo& info)
+{
+    frecuencia = info.sampleRate;
+    for (auto& l : linea)
+        l.assign ((size_t) std::lround (4.0 * frecuencia), 0.0f);
+    posEscritura = 0;
+    retardoSuavizado = 0.0f;
+    filtro[0] = filtro[1] = 0.0f;
+}
+
+void DelayPlugin::applyToBuffer (const te::PluginRenderContext& fc)
+{
+    if (! isEnabled() || fc.destBuffer == nullptr)
+        return;
+
+    auto& buffer = *fc.destBuffer;
+    const int inicio = fc.bufferStartSample;
+    const int n = fc.bufferNumSamples;
+    const int canales = juce::jmin (2, buffer.getNumChannels());
+
+    // El tiempo sale del tempo del proyecto: una redonda son 4 pulsos.
+    const double bpm = edit.tempoSequence.getBpmAt (te::TimePosition());
+    const int indiceFraccion = juce::jlimit (0, 8, (int) std::lround (pTiempo->getCurrentValue()));
+    const double segundos = FRACCIONES[indiceFraccion] * 4.0 * 60.0 / juce::jmax (20.0, bpm);
+    const float objetivo = juce::jlimit (1.0f, (float) linea[0].size() - 4.0f, (float) (segundos * frecuencia));
+    if (retardoSuavizado <= 0.0f) retardoSuavizado = objetivo;
+
+    const float humedo = pMezcla->getCurrentValue();
+    const float seco = 1.0f - humedo;
+    const float vuelta = pRealimentacion->getCurrentValue();
+    const bool cruzado = pPingpong->getCurrentValue() >= 0.5f;
+    const float cTono = 1.0f - std::exp (-2.0f * juce::MathConstants<float>::pi * pTono->getCurrentValue() / (float) frecuencia);
+
+    float* datos[2] = { buffer.getWritePointer (0, inicio),
+                        canales > 1 ? buffer.getWritePointer (1, inicio) : nullptr };
+    const int largo = (int) linea[0].size();
+
+    for (int i = 0; i < n; ++i)
+    {
+        // El retardo se desliza despacio hacia su objetivo: cambiar el tempo
+        // o la fracción no chasquea, hace un pequeño barrido de cinta.
+        retardoSuavizado += juce::jlimit (-0.5f, 0.5f, objetivo - retardoSuavizado) * 0.002f
+                          + juce::jlimit (-0.002f, 0.002f, objetivo - retardoSuavizado);
+
+        auto leer = [&] (int canal)
+        {
+            const float posicion = (float) posEscritura - retardoSuavizado;
+            int a = (int) std::floor (posicion);
+            const float fraccion = posicion - (float) a;
+            a = ((a % largo) + largo) % largo;
+            const int b = (a + 1) % largo;
+            return linea[canal][(size_t) a] * (1.0f - fraccion) + linea[canal][(size_t) b] * fraccion;
+        };
+
+        const float ecoIzq = leer (0);
+        const float ecoDer = canales > 1 ? leer (1) : ecoIzq;
+
+        filtro[0] += cTono * (ecoIzq - filtro[0]);
+        filtro[1] += cTono * (ecoDer - filtro[1]);
+
+        const float entradaIzq = datos[0][i];
+        const float entradaDer = datos[1] != nullptr ? datos[1][i] : entradaIzq;
+
+        // Ping-pong: la vuelta de cada canal alimenta al contrario.
+        linea[0][(size_t) posEscritura] = entradaIzq + (cruzado ? filtro[1] : filtro[0]) * vuelta;
+        linea[1][(size_t) posEscritura] = entradaDer + (cruzado ? filtro[0] : filtro[1]) * vuelta;
+        posEscritura = (posEscritura + 1) % largo;
+
+        datos[0][i] = seco * entradaIzq + humedo * filtro[0];
+        if (datos[1] != nullptr) datos[1][i] = seco * entradaDer + humedo * filtro[1];
+    }
+}
+
+void DelayPlugin::restorePluginStateFromValueTree (const juce::ValueTree& v)
+{
+    te::copyPropertiesToCachedValues (v, tiempo, realimentacion, tono, pingpong, mezcla);
+    for (auto p : getAutomatableParameters()) p->updateFromAttachedValue();
+}
+
+/* ================================================================ Puerta */
+
+const char* PuertaPlugin::xmlTypeName = "puerta";
+
+PuertaPlugin::PuertaPlugin (te::PluginCreationInfo info) : te::Plugin (info)
+{
+    auto um = getUndoManager();
+    umbral.referTo (state, "umbral", um, -45.0f);
+    ataque.referTo (state, "ataque", um, 1.5f);
+    relajacion.referTo (state, "relajacion", um, 120.0f);
+    retencion.referTo (state, "retencion", um, 60.0f);
+    rango.referTo (state, "rango", um, -70.0f);
+
+    pUmbral = addParam ("umbral", TRANS("Umbral"), { -80.0f, 0.0f });
+    pAtaque = addParam ("ataque", TRANS("Ataque"), { 0.1f, 50.0f });
+    pRelajacion = addParam ("relajacion", juce::String::fromUTF8 ("Relajaci\xc3\xb3n"), { 5.0f, 1000.0f });
+    pRetencion = addParam ("retencion", juce::String::fromUTF8 ("Retenci\xc3\xb3n"), { 0.0f, 500.0f });
+    pRango = addParam ("rango", TRANS("Rango"), { -80.0f, 0.0f });
+
+    pUmbral->attachToCurrentValue (umbral);
+    pAtaque->attachToCurrentValue (ataque);
+    pRelajacion->attachToCurrentValue (relajacion);
+    pRetencion->attachToCurrentValue (retencion);
+    pRango->attachToCurrentValue (rango);
+}
+
+PuertaPlugin::~PuertaPlugin()
+{
+    notifyListenersOfDeletion();
+    for (auto p : { &pUmbral, &pAtaque, &pRelajacion, &pRetencion, &pRango }) (*p)->detachFromCurrentValue();
+}
+
+void PuertaPlugin::initialise (const te::PluginInitialisationInfo& info)
+{
+    frecuencia = info.sampleRate;
+    envolvente = 0.0f;
+    apertura = 0.0f;
+    retenidas = 0;
+}
+
+void PuertaPlugin::applyToBuffer (const te::PluginRenderContext& fc)
+{
+    if (! isEnabled() || fc.destBuffer == nullptr)
+        return;
+
+    auto& buffer = *fc.destBuffer;
+    const int inicio = fc.bufferStartSample;
+    const int n = fc.bufferNumSamples;
+    const int canales = juce::jmin (2, buffer.getNumChannels());
+
+    const float abrir = dbAGanancia (pUmbral->getCurrentValue());
+    const float cerrar = abrir * 0.708f; // histéresis de 3 dB: sin tartamudeo
+    const float suelo = dbAGanancia (pRango->getCurrentValue());
+    const int retener = (int) std::lround (pRetencion->getCurrentValue() / 1000.0 * frecuencia);
+
+    const float cSeguidor = 1.0f - std::exp (-1.0f / (0.0005f * (float) frecuencia));
+    const float cAtaque = 1.0f - std::exp (-1.0f / (juce::jmax (0.05f, pAtaque->getCurrentValue()) * 0.001f * (float) frecuencia));
+    const float cRelaja = 1.0f - std::exp (-1.0f / (juce::jmax (1.0f, pRelajacion->getCurrentValue()) * 0.001f * (float) frecuencia));
+
+    float* datos[2] = { buffer.getWritePointer (0, inicio),
+                        canales > 1 ? buffer.getWritePointer (1, inicio) : nullptr };
+
+    for (int i = 0; i < n; ++i)
+    {
+        float pico = std::abs (datos[0][i]);
+        if (datos[1] != nullptr) pico = juce::jmax (pico, std::abs (datos[1][i]));
+
+        envolvente += (pico > envolvente ? cSeguidor : cRelaja * 0.5f) * (pico - envolvente);
+
+        bool abierta;
+        if (envolvente > abrir) { abierta = true; retenidas = retener; }
+        else if (envolvente > cerrar) { abierta = apertura > 0.5f; }
+        else if (retenidas > 0) { abierta = true; retenidas -= 1; }
+        else { abierta = false; }
+
+        apertura += (abierta ? cAtaque : cRelaja) * ((abierta ? 1.0f : 0.0f) - apertura);
+
+        const float g = suelo + (1.0f - suelo) * apertura;
+        datos[0][i] *= g;
+        if (datos[1] != nullptr) datos[1][i] *= g;
+    }
+}
+
+void PuertaPlugin::restorePluginStateFromValueTree (const juce::ValueTree& v)
+{
+    te::copyPropertiesToCachedValues (v, umbral, ataque, relajacion, retencion, rango);
+    for (auto p : getAutomatableParameters()) p->updateFromAttachedValue();
 }

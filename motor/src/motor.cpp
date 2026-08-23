@@ -33,7 +33,8 @@ namespace
 
     const char* TIPOS_SUITE[] = { UtilidadPlugin::xmlTypeName, CompresorPlugin::xmlTypeName,
                                   TechoPlugin::xmlTypeName, EQOchoPlugin::xmlTypeName,
-                                  MedidorPlugin::xmlTypeName };
+                                  MedidorPlugin::xmlTypeName, PlacaPlugin::xmlTypeName,
+                                  DelayPlugin::xmlTypeName, PuertaPlugin::xmlTypeName };
 }
 
 Motor::Motor (Opciones o, std::function<void (const juce::String&)> e)
@@ -332,6 +333,8 @@ juce::var Motor::listarPistas()
             {
                 pon (d, "ruta", onda->getCurrentSourceFile().getFullPathName());
                 pon (d, "duracionFuente", onda->getAudioFile().getLength());
+                pon (d, "entradaFundido", onda->getFadeIn().inSeconds());
+                pon (d, "salidaFundido", onda->getFadeOut().inSeconds());
             }
 
             clips.add (d);
@@ -548,6 +551,52 @@ juce::var Motor::dividirClip (const juce::String& id, double segundos)
     auto r = objeto();
     pon (r, "id", nuevo->itemID.toString());
     return r;
+}
+
+juce::var Motor::duplicarClip (const juce::String& id)
+{
+    auto* objetivo = dynamic_cast<te::WaveAudioClip*> (clip (id));
+    if (objetivo == nullptr)
+        throw std::runtime_error ("no existe el clip de audio");
+
+    auto* dueno = dynamic_cast<te::AudioTrack*> (objetivo->getClipTrack());
+    if (dueno == nullptr)
+        throw std::runtime_error ("el clip no está en una pista");
+
+    edit->getUndoManager().beginNewTransaction ("duplicar clip");
+
+    // El duplicado nace pegado detrás del original, con su misma ventana.
+    const auto posicion = objetivo->getPosition();
+    auto nuevo = dueno->insertWaveClip (objetivo->getName(), objetivo->getCurrentSourceFile(),
+                                        { { posicion.getEnd(), posicion.getEnd() + posicion.getLength() },
+                                          posicion.getOffset() },
+                                        false);
+    if (nuevo == nullptr)
+        throw std::runtime_error ("no se pudo duplicar");
+
+    nuevo->setFadeIn (objetivo->getFadeIn());
+    nuevo->setFadeOut (objetivo->getFadeOut());
+
+    emitirModelo();
+    auto r = objeto();
+    pon (r, "id", nuevo->itemID.toString());
+    return r;
+}
+
+juce::var Motor::fundidosClip (const juce::String& id, double entrada, double salida)
+{
+    auto* objetivo = dynamic_cast<te::WaveAudioClip*> (clip (id));
+    if (objetivo == nullptr)
+        throw std::runtime_error ("no existe el clip de audio");
+
+    edit->getUndoManager().beginNewTransaction ("fundidos");
+
+    const auto duracion = objetivo->getPosition().getLength().inSeconds();
+    objetivo->setFadeIn (te::TimeDuration::fromSeconds (juce::jlimit (0.0, duracion, entrada)));
+    objetivo->setFadeOut (te::TimeDuration::fromSeconds (juce::jlimit (0.0, duracion, salida)));
+
+    emitirModelo();
+    return juce::var (true);
 }
 
 juce::var Motor::borrarClip (const juce::String& id)
@@ -930,6 +979,18 @@ void Motor::timerCallback()
         emitir (protocolo::evento ("medidores", datos));
 
     reproduciendoAntes = reproduciendo;
+
+    // Autoguardado: cada ~2 minutos, si el proyecto tiene carpeta y cambios.
+    // T.E. guarda con seguridad (temporal + rename): un corte no lo rompe.
+    if (++tics >= 15 * 120)
+    {
+        tics = 0;
+        if (edit != nullptr && carpetaProyecto != juce::File() && edit->hasChangedSinceSaved())
+        {
+            te::EditFileOperations (*edit).save (false, false, false);
+            emitirModelo();
+        }
+    }
 }
 
 /* ================================================================= bomba */
@@ -1028,6 +1089,8 @@ int Motor::autoprueba()
     const juce::String idSegundo = division["id"].toString();
     moverClip (idSegundo, 2.0, 1);
     recortarClip (idSegundo, 2.0, 2.4);
+    duplicarClip (idClip);
+    fundidosClip (idClip, 0.1, 0.1);
 
     // Deshacer y rehacer, sobre una operación de clip: borrar, recuperar,
     // volver a borrar y recuperar de nuevo. Deben quedar los dos clips.
@@ -1040,12 +1103,15 @@ int Motor::autoprueba()
     const int clipsTrasDeshacer = (int) trasDeshacer["pistas"][0]["clips"].size()
                                 + (int) trasDeshacer["pistas"][1]["clips"].size();
 
-    // La suite en el máster: EQ + Compresor + Techo + Medidor.
+    // La suite en el máster: mezcla y mastering al completo hasta la fecha.
     insertarPlugin (-1, "eqocho", 0);
     insertarPlugin (-1, "compresor", 1);
-    insertarPlugin (-1, "techo", 2);
-    insertarPlugin (-1, "medidor", 3);
-    parametroPlugin (-1, 2, "techo", -3.0);
+    insertarPlugin (-1, "puerta", 2);
+    insertarPlugin (-1, "placa", 3);
+    insertarPlugin (-1, "delay", 4);
+    insertarPlugin (-1, "techo", 5);
+    insertarPlugin (-1, "medidor", 6);
+    parametroPlugin (-1, 5, "techo", -3.0);
     pausa (200);
 
     // Reproducir con la bomba. El audio recién copiado necesita que el motor
@@ -1088,9 +1154,9 @@ int Motor::autoprueba()
 
     const bool avanza = segundos > 0.25;
     const bool suena = pico > 0.05f;
-    const bool deshace = clipsTrasDeshacer == 2;
+    const bool deshace = clipsTrasDeshacer == 3;
     const bool renderiza = picoRender > 0.05f;
-    const bool persiste = clipsReabiertos == 2 && pluginsMaster == 4;
+    const bool persiste = clipsReabiertos == 3 && pluginsMaster == 7;
     const bool ok = avanza && suena && deshace && renderiza && persiste;
 
     auto r = objeto();

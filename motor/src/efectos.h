@@ -147,6 +147,107 @@ private:
 };
 
 //==============================================================================
+/** Reverb de placa: red de retardos (FDN de 8 líneas, matriz de Householder)
+    con difusión de entrada y amortiguación de agudos en el lazo. El carácter
+    EMT-140 fino llega con F2 completa; esta ya flota como debe. */
+class PlacaPlugin : public te::Plugin
+{
+public:
+    static const char* getPluginName() { return "Placa"; }
+    static const char* xmlTypeName;
+
+    PlacaPlugin (te::PluginCreationInfo);
+    ~PlacaPlugin() override;
+
+    juce::String getName() const override { return getPluginName(); }
+    juce::String getPluginType() override { return xmlTypeName; }
+    juce::String getSelectableDescription() override { return getName(); }
+
+    void initialise (const te::PluginInitialisationInfo&) override;
+    void deinitialise() override {}
+    void applyToBuffer (const te::PluginRenderContext&) override;
+    void restorePluginStateFromValueTree (const juce::ValueTree&) override;
+
+    juce::CachedValue<float> predelay, decaimiento, amortiguacion, mezcla;
+    te::AutomatableParameter::Ptr pPredelay, pDecaimiento, pAmortiguacion, pMezcla;
+
+private:
+    static constexpr int LINEAS = 8;
+
+    double frecuencia = 48000.0;
+    std::vector<float> lineas[LINEAS];
+    int posLinea[LINEAS] = {};
+    float pasoBajo[LINEAS] = {};
+    std::vector<float> difusores[4];       // 2 allpass por canal de entrada
+    int posDifusor[4] = {};
+    std::vector<float> preLinea[2];
+    int posPre = 0;
+};
+
+//==============================================================================
+/** Eco digital sincronizado al tempo del proyecto, con realimentación
+    filtrada y modo ping-pong. */
+class DelayPlugin : public te::Plugin
+{
+public:
+    static const char* getPluginName() { return "Delay"; }
+    static const char* xmlTypeName;
+
+    DelayPlugin (te::PluginCreationInfo);
+    ~DelayPlugin() override;
+
+    juce::String getName() const override { return getPluginName(); }
+    juce::String getPluginType() override { return xmlTypeName; }
+    juce::String getSelectableDescription() override { return getName(); }
+
+    void initialise (const te::PluginInitialisationInfo&) override;
+    void deinitialise() override {}
+    void applyToBuffer (const te::PluginRenderContext&) override;
+    void restorePluginStateFromValueTree (const juce::ValueTree&) override;
+
+    juce::CachedValue<float> tiempo, realimentacion, tono, pingpong, mezcla;
+    te::AutomatableParameter::Ptr pTiempo, pRealimentacion, pTono, pPingpong, pMezcla;
+
+private:
+    double frecuencia = 48000.0;
+    std::vector<float> linea[2];
+    int posEscritura = 0;
+    float retardoSuavizado = 0.0f;         // en muestras; se desliza sin clicks
+    float filtro[2] = {};
+};
+
+//==============================================================================
+/** Puerta de ruido con histéresis y retención: abre rápido, aguanta lo que
+    se le pida y cierra con elegancia. */
+class PuertaPlugin : public te::Plugin
+{
+public:
+    static const char* getPluginName() { return "Puerta"; }
+    static const char* xmlTypeName;
+
+    PuertaPlugin (te::PluginCreationInfo);
+    ~PuertaPlugin() override;
+
+    juce::String getName() const override { return getPluginName(); }
+    juce::String getPluginType() override { return xmlTypeName; }
+    juce::String getSelectableDescription() override { return getName(); }
+
+    void initialise (const te::PluginInitialisationInfo&) override;
+    void deinitialise() override {}
+    void applyToBuffer (const te::PluginRenderContext&) override;
+    void restorePluginStateFromValueTree (const juce::ValueTree&) override;
+
+    juce::CachedValue<float> umbral, ataque, relajacion, retencion, rango;
+    te::AutomatableParameter::Ptr pUmbral, pAtaque, pRelajacion, pRetencion, pRango;
+
+private:
+    double frecuencia = 48000.0;
+    float envolvente = 0.0f;
+    float apertura = 0.0f;                 // 0 cerrada · 1 abierta, suavizada
+    int retenidas = 0;                     // muestras que quedan de retención
+};
+
+//==============================================================================
 /** Medición del máster: pico por canal y sonoridad LUFS (momentánea, corta e
     integrada) con el prefiltro K y las puertas de ITU-R BS.1770 / EBU R128.
     La validación formal contra los vectores oficiales de la EBU es de F2. */

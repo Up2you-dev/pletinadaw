@@ -1,24 +1,17 @@
 import { $, $$, esc } from './dom.js';
 import { ICO } from './iconos.js';
 import { estado } from '../estado.js';
+import { INSERTABLES } from '../../shared/catalogo.js';
 
 /**
  * La tira de dispositivos, al estilo Ableton: la cadena de la pista
  * seleccionada (o del máster) de izquierda a derecha. Cada tarjeta enseña
  * sus parámetros como deslizadores generados del descriptor que manda el
- * motor: la tira no conoce los efectos de nada, los pinta.
+ * motor: la tira no conoce los efectos de nada, los pinta. Lo insertable
+ * sale del catálogo compartido: una sola fuente de verdad.
  */
 
 let acciones = null;
-
-// La suite de F1 que se puede insertar hoy; el resto vive en el rail con su fase.
-const INSERTABLES = [
-  { tipo: 'eqocho', nombre: 'EQ Ocho' },
-  { tipo: 'compresor', nombre: 'Compresor' },
-  { tipo: 'techo', nombre: 'Techo' },
-  { tipo: 'medidor', nombre: 'Medidor' },
-  { tipo: 'utilidad', nombre: 'Utilidad' },
-];
 
 export function montarTira(inyectadas) {
   acciones = inyectadas;

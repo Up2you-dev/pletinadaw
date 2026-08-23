@@ -89,6 +89,8 @@ namespace protocolo
             if (metodo == "clip.mover")           return respuesta (id, motor.moverClip (params["id"].toString(), (double) params["inicio"], params.hasProperty ("pista") ? (int) params["pista"] : -1));
             if (metodo == "clip.recortar")        return respuesta (id, motor.recortarClip (params["id"].toString(), (double) params["inicio"], (double) params["fin"]));
             if (metodo == "clip.dividir")         return respuesta (id, motor.dividirClip (params["id"].toString(), (double) params["segundos"]));
+            if (metodo == "clip.duplicar")        return respuesta (id, motor.duplicarClip (params["id"].toString()));
+            if (metodo == "clip.fundidos")        return respuesta (id, motor.fundidosClip (params["id"].toString(), (double) params["entrada"], (double) params["salida"]));
             if (metodo == "clip.borrar")          return respuesta (id, motor.borrarClip (params["id"].toString()));
             if (metodo == "clip.picos")           return respuesta (id, motor.picosClip (params["id"].toString(), params.hasProperty ("porSegundo") ? (int) params["porSegundo"] : 50));
 

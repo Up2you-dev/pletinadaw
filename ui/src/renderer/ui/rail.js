@@ -1,6 +1,6 @@
 import { $, esc } from './dom.js';
 import { ICO } from './iconos.js';
-import { CATALOGO, FASE_ACTUAL } from '../../shared/catalogo.js';
+import { CATALOGO } from '../../shared/catalogo.js';
 import { estado } from '../estado.js';
 
 /**
@@ -25,7 +25,7 @@ export function montarRail() {
   const grupos = CATALOGO.map(({ grupo, dispositivos }) => {
     const filas = dispositivos.map((d) => {
       const icono = grupo === 'Instrumentos' ? ICO.teclado : ICO.enchufe;
-      const existe = d.fase <= FASE_ACTUAL;
+      const existe = !!d.lista;
       const clase = existe ? '' : ' futura';
       const fase = existe ? '<span class="fase f0">✓</span>' : `<span class="fase">F${d.fase}</span>`;
       return `<div class="entrada${clase}" title="${esc(d.detalle)}">${icono}<span>${esc(d.nombre)}</span>${fase}</div>`;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CATALOGO, CADENA_MAESTRA, buscarDispositivo } from '../src/shared/catalogo.js';
+import { CATALOGO, CADENA_MAESTRA, INSERTABLES, buscarDispositivo } from '../src/shared/catalogo.js';
 
 describe('el catálogo de la suite', () => {
   const todos = CATALOGO.flatMap((g) => g.dispositivos);
@@ -33,5 +33,19 @@ describe('el catálogo de la suite', () => {
 
   it('buscar algo que no existe devuelve null, no un accidente', () => {
     expect(buscarDispositivo('Reverb Cuántica')).toBeNull();
+  });
+
+  it('lo insertable existe de verdad: lista implica tipo del motor', () => {
+    expect(INSERTABLES.length).toBeGreaterThanOrEqual(5);
+    for (const d of INSERTABLES) {
+      expect(d.lista).toBe(true);
+      expect(d.tipo).toMatch(/^[a-z]+$/);
+    }
+  });
+
+  it('nadie declara tipo sin estar listo, ni al revés', () => {
+    for (const d of todos) {
+      expect(!!d.tipo).toBe(!!d.lista);
+    }
   });
 });

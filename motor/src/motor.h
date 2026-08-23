@@ -71,6 +71,8 @@ public:
     juce::var moverClip (const juce::String& id, double inicio, int pista);
     juce::var recortarClip (const juce::String& id, double inicio, double fin);
     juce::var dividirClip (const juce::String& id, double segundos);
+    juce::var duplicarClip (const juce::String& id);
+    juce::var fundidosClip (const juce::String& id, double entrada, double salida);
     juce::var borrarClip (const juce::String& id);
     juce::var picosClip (const juce::String& id, int porSegundo);
 
@@ -134,6 +136,7 @@ private:
     std::atomic<float> picoIzq { 0.0f }, picoDer { 0.0f };
 
     bool reproduciendoAntes = false;
+    int tics = 0; // del temporizador de 15 Hz: cada ~2 min toca autoguardado
 
     JUCE_DECLARE_NON_COPYABLE (Motor)
 };

@@ -32,6 +32,8 @@ namespace protocolo
         "clip.mover",
         "clip.recortar",
         "clip.dividir",
+        "clip.duplicar",
+        "clip.fundidos",
         "clip.borrar",
         "clip.picos",
         "plugin.insertar",
