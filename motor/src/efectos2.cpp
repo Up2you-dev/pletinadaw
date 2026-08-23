@@ -1289,6 +1289,12 @@ void ConvolucionPlugin::applyToBuffer (const te::PluginRenderContext& fc)
 
 void ConvolucionPlugin::restorePluginStateFromValueTree (const juce::ValueTree& v)
 {
-    te::copyPropertiesToCachedValues (v, mezcla, ganancia, rutaIR);
+    // A mano y no con copyPropertiesToCachedValues: mezclar CachedValue<float>
+    // con CachedValue<String> dispara en MSVC un String(var) ambiguo dentro
+    // de la plantilla de T.E. (GCC lo resuelve; el CI de Windows, no).
+    auto um = getUndoManager();
+    if (v.hasProperty (mezcla.getPropertyID()))   mezcla.setValue ((float) (double) v[mezcla.getPropertyID()], um);
+    if (v.hasProperty (ganancia.getPropertyID())) ganancia.setValue ((float) (double) v[ganancia.getPropertyID()], um);
+    if (v.hasProperty (rutaIR.getPropertyID()))   rutaIR.setValue (v[rutaIR.getPropertyID()].toString(), um);
     for (auto p : getAutomatableParameters()) p->updateFromAttachedValue();
 }
