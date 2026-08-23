@@ -39,7 +39,18 @@ export function pintarTira() {
   const indicePista = estado.pistaSeleccionada;
   const clip = clipSolo();
 
-  const inspector = clip === null ? '' : `
+  const inspector = clip === null ? '' : clip.tipo === 'midi' ? `
+    <div class="dispositivo inspector-clip activo">
+      <div class="cabeza">
+        <span class="nombre" title="Clip MIDI seleccionado">${esc(clip.nombre || 'Clip MIDI')}</span>
+      </div>
+      <div class="mandos mandos-clip">
+        <button class="abrir-notas">Abrir notas ♪</button>
+        <span class="campo">${(clip.notas || []).length} notas</span>
+        <span class="campo">${esc(clip.cuantizacion && clip.cuantizacion !== '(none)' ? clip.cuantizacion : 'sin cuantizar')}</span>
+      </div>
+    </div>
+  ` : `
     <div class="dispositivo inspector-clip activo">
       <div class="cabeza">
         <span class="nombre" title="Clip seleccionado">${esc(clip.nombre || 'Clip')}</span>
@@ -98,7 +109,11 @@ export function pintarTira() {
     </div>
   `;
 
-  if (clip !== null) {
+  if (clip !== null && clip.tipo === 'midi') {
+    $('.tira .inspector-clip .abrir-notas')?.addEventListener('click', () => {
+      acciones.alAbrirPianoRoll(clip.id);
+    });
+  } else if (clip !== null) {
     const tarjeta = $('.tira .inspector-clip');
     const bpmFuente = tarjeta.querySelector('.bpm-fuente');
     const transposicion = tarjeta.querySelector('.transposicion');

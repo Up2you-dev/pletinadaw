@@ -8,7 +8,11 @@ grabación, MIDI, warping, y una suite propia de efectos con la cadena de
 mastering como pieza central. Sin nube, sin cuentas y sin IA: tus proyectos
 viven en tu disco.
 
-**Estado: F3 — clásicos y warp (construida).** Ya se importa audio, se edita
+**Estado: F4 — grabar y MIDI (núcleo construido).** Se graba audio en las
+pistas armadas (con claqueta opcional) y también MIDI; hay clips MIDI con
+piano roll, cuantización no destructiva y tres instrumentos propios: la
+**Bruma** (sinte sustractivo), la **Cinta** (sampler) y los **Pads** (16
+pads sintetizados). Además, ya se importa audio, se edita
 en el timeline (mover, recortar, dividir, duplicar, fundidos, imán,
 deshacer), se mezcla con envíos y retornos, se automatiza el volumen, y se
 procesa con una suite de **35 efectos propios**: la cadena de mastering

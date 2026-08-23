@@ -42,6 +42,7 @@ export function pintarMesa() {
         <button class="m" aria-pressed="${pista.mute ? 'true' : 'false'}" title="Silenciar">M</button>
         <button class="s" aria-pressed="${pista.solo ? 'true' : 'false'}" title="Solo">S</button>
         <button class="c" aria-pressed="${pista.congelada ? 'true' : 'false'}" title="Congelar pista">❄</button>
+        <button class="r" aria-pressed="${pista.armada ? 'true' : 'false'}" title="Armar para grabar">●</button>
       </div>
       <div class="nombre">${esc(pista.nombre)}</div>
     </div>
@@ -93,6 +94,9 @@ export function pintarMesa() {
     });
     canalEl.querySelector('.c')?.addEventListener('click', (evento) => {
       acciones.alCongelar(indice, evento.currentTarget.getAttribute('aria-pressed') !== 'true');
+    });
+    canalEl.querySelector('.r')?.addEventListener('click', (evento) => {
+      acciones.alArmar(indice, evento.currentTarget.getAttribute('aria-pressed') !== 'true');
     });
 
     for (const envio of canalEl.querySelectorAll('.envio')) {

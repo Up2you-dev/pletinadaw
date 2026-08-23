@@ -674,6 +674,7 @@ juce::var Motor::crearClipMidi (int indicePista, double inicio, double compases)
     auto nuevo = objetivo->insertMIDIClip ({ desde, fin }, nullptr);
     if (nuevo == nullptr)
         throw std::runtime_error ("no se pudo crear el clip MIDI");
+    nuevo->setName ("Clip MIDI");
 
     emitirModelo();
     auto r = objeto();

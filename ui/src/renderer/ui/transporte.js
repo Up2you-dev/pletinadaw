@@ -8,7 +8,7 @@ import { formatoMusical, formatoReloj, bpmValido } from '../../shared/tiempo.js'
  * tocar/parar, el reloj doble, tempo, metrónomo y el chip del motor.
  */
 
-let relojMusical, relojSegundos, botonTocar, botonMetronomo, botonCiclo, chipProyecto;
+let relojMusical, relojSegundos, botonTocar, botonGrabar, botonMetronomo, botonCiclo, chipProyecto;
 
 export function montarTransporte(acciones) {
   const host = $('#transporte');
@@ -29,6 +29,8 @@ export function montarTransporte(acciones) {
     <span class="separador"></span>
     <button class="btn btn-icono" id="al-principio" title="Ir al principio (Inicio)">${ICO.alPrincipio}</button>
     <button class="btn btn-icono btn-primary" id="tocar" title="Tocar / parar (espacio)">${ICO.tocar}</button>
+    <button class="btn btn-icono grabar" id="b-grabar" aria-pressed="false"
+            title="Grabar en las pistas armadas (Mayús+clic: con claqueta de un compás)">⏺</button>
     <button class="btn btn-icono" id="b-metronomo" aria-pressed="false" title="Metrónomo">${ICO.metronomo}</button>
     <button class="btn btn-icono" id="b-ciclo" aria-pressed="false" title="Bucle (dibújalo en la mitad alta de la regla)">${ICO.ciclo}</button>
     <div class="reloj" title="compás.pulso.dieciseisavo · minutos:segundos">
@@ -46,12 +48,14 @@ export function montarTransporte(acciones) {
   relojMusical = $('#reloj-musical');
   relojSegundos = $('#reloj-segundos');
   botonTocar = $('#tocar');
+  botonGrabar = $('#b-grabar');
   botonMetronomo = $('#b-metronomo');
   botonCiclo = $('#b-ciclo');
   chipProyecto = $('#chip-proyecto');
   botonCiclo.addEventListener('click', acciones.alCiclo);
 
   botonTocar.addEventListener('click', acciones.alConmutar);
+  botonGrabar.addEventListener('click', (evento) => acciones.alGrabar(evento.shiftKey));
   $('#al-principio').addEventListener('click', () => acciones.alIrA(0));
   $('#b-nuevo').addEventListener('click', acciones.alNuevoProyecto);
   $('#b-abrir').addEventListener('click', acciones.alAbrirProyecto);
@@ -84,6 +88,7 @@ export function montarTransporte(acciones) {
 export function pintarBoton() {
   botonTocar.innerHTML = estado.reproduciendo ? ICO.parar : ICO.tocar;
   botonTocar.title = estado.reproduciendo ? 'Parar (espacio)' : 'Tocar (espacio)';
+  botonGrabar.setAttribute('aria-pressed', estado.grabando ? 'true' : 'false');
   botonMetronomo.setAttribute('aria-pressed', estado.metronomo ? 'true' : 'false');
   botonCiclo.setAttribute('aria-pressed', estado.bucle.activo ? 'true' : 'false');
 }

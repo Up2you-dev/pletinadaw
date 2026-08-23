@@ -132,6 +132,23 @@ app.whenReady().then(() => {
           await motor.orden('plugin.insertar', { pista: -1, tipo: 'medidor', indice: 4 });
           await motor.orden('plugin.insertar', { pista: 1, tipo: 'placa' });
           await motor.orden('plugin.insertar', { pista: 1, tipo: 'eco', indice: 1 });
+          const patron = await motor.orden('clip.midi.crear', { pista: 2, inicio: 0, compases: 2 });
+          await motor.orden('clip.midi.notas', { id: patron.id, notas: [
+            { nota: 36, inicio: 0, duracion: 0.4, velocidad: 110 },
+            { nota: 42, inicio: 0.5, duracion: 0.2, velocidad: 80 },
+            { nota: 38, inicio: 1, duracion: 0.4, velocidad: 100 },
+            { nota: 42, inicio: 1.5, duracion: 0.2, velocidad: 80 },
+            { nota: 36, inicio: 2, duracion: 0.4, velocidad: 110 },
+            { nota: 42, inicio: 2.5, duracion: 0.2, velocidad: 80 },
+            { nota: 38, inicio: 3, duracion: 0.4, velocidad: 100 },
+            { nota: 39, inicio: 3.5, duracion: 0.5, velocidad: 90 },
+            { nota: 36, inicio: 4, duracion: 0.4, velocidad: 110 },
+            { nota: 42, inicio: 4.5, duracion: 0.2, velocidad: 80 },
+            { nota: 38, inicio: 5, duracion: 0.4, velocidad: 100 },
+            { nota: 48, inicio: 6, duracion: 1.6, velocidad: 95 },
+          ] });
+          await motor.orden('plugin.insertar', { pista: 2, tipo: 'pads' });
+          await motor.orden('pista.armar', { pista: 3, activo: true });
           await motor.orden('pista.envio', { pista: 0, bus: 0, nivelDb: -14 });
           await motor.orden('automatizacion.puntos', { pista: 0, parametro: 'volumen',
             puntos: [{ t: 0, v: 0 }, { t: 1.5, v: -14 }, { t: 3, v: -2 }] });

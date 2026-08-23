@@ -2,9 +2,27 @@
 
 Tres instrumentos propios, internos como los efectos, pensados para cubrir el
 90 % de lo que se programa en casa: tocar un sample, montar un ritmo, y un
-sinte que enseñe síntesis mientras suena bien. Llegan en F4 junto al MIDI y
-el piano roll. Los sintes gigantes de wavetables quedan para los VST3 de cada
-cual (F5).
+sinte que enseñe síntesis mientras suena bien. Los sintes gigantes de
+wavetables quedan para los VST3 de cada cual (F5).
+
+**Estado (F4 construida):** los tres existen, reciben MIDI del clip o de la
+entrada, se insertan desde el catálogo y su sonido está verificado en la
+autoprueba. Lo construido es la **v1** de cada uno — el corazón que suena —
+y lo demás de las listas de abajo queda dicho como diseño pendiente:
+
+- **Bruma v1**: 2 osciladores polyBLEP (sierra/cuadrada/triángulo) con
+  desafinación, filtro SVF resonante con envolvente al corte, ADSR, 8 voces
+  con robo por edad. Pendiente: sub + ruido, sync, segunda envolvente, LFOs,
+  matriz, unísono, glide y modo mono/legato.
+- **Cinta v1**: una muestra reproducida cromáticamente desde la nota raíz
+  (repitch), ataque/relajación, bucle, y una cuerda Karplus-Strong de
+  fábrica para sonar sin archivos; carga por ruta (`rutaMuestra`).
+  Pendiente: arrastrar audio desde la interfaz, stretch y one-shot, puntos
+  de inicio/fin/loop sobre la onda, filtro, LFO, multizona.
+- **Pads v1**: 16 pads **sintetizados** (bombo, caja, hats, clap, toms,
+  metales, zap…) en C1..D#2 con nivel, afinación y decaimiento globales.
+  Pendiente: samples por pad, choke groups, salidas por canal, ADSR y filtro
+  por pad.
 
 ## Cinta — el sampler
 

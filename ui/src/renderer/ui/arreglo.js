@@ -383,6 +383,12 @@ function dobleClic(evento) {
   if (donde.zona === 'cabecera') {
     const y = REGLA_H + donde.fila * altoPistaActual();
     acciones.alRenombrarPista(donde.fila, donde.pista.nombre, { x: 8, y: y + 8, ancho: CABECERA_W - 16 });
+  } else if (donde.zona === 'clip' && donde.clip?.tipo === 'midi') {
+    acciones.alAbrirPianoRoll(donde.clip.id);
+  } else if (donde.zona === 'carril' && donde.pista && !donde.pista.retorno) {
+    // Doble clic en el vacío: nace un clip MIDI de un compás, imantado al compás.
+    const s = imanASubdivision(segundosDeX(evento.clientX - rect.left), estado.bpm, 1);
+    acciones.alCrearClipMidi(donde.fila, Math.max(0, s));
   }
 }
 
@@ -471,27 +477,47 @@ export function pintar(ahora) {
       ctx.strokeStyle = `${pista.color}B3`;
       ctx.beginPath();
 
-      const entrada = picosDe(clip);
-      if (entrada && columnas > 0) {
-        const visibleDesde = (clip.desfase || 0) + (segundosDeX(desde) - inicio);
-        const visibleDuracion = (hasta - desde) / pxPorSegundo;
-        const cortados = recortarPicos(entrada.picos, entrada.porSegundo, visibleDesde, visibleDuracion, columnas);
-        for (let k = 0; k < columnas; k += 1) {
-          const a = (cortados[k] / 100) * margen;
-          const x = desde + k * 2;
-          ctx.moveTo(x + 0.5, centro - a);
-          ctx.lineTo(x + 0.5, centro + a + 1);
+      if (clip.tipo === 'midi') {
+        // Un clip MIDI enseña sus notas como barritas; doble clic lo abre.
+        ctx.stroke();
+        const notas = clip.notas || [];
+        if (notas.length) {
+          const sPorBeat = 60 / (estado.bpm || 120);
+          let notaMin = 127, notaMax = 0;
+          for (const n of notas) { notaMin = Math.min(notaMin, n.nota); notaMax = Math.max(notaMax, n.nota); }
+          const rango = Math.max(12, notaMax - notaMin + 1);
+          const hNota = Math.max(2, Math.min(6, (hClip - 16) / rango));
+          ctx.fillStyle = `${pista.color}E6`;
+          for (const n of notas) {
+            const nx = x0 + n.inicio * sPorBeat * pxPorSegundo;
+            const nw = Math.max(2, n.duracion * sPorBeat * pxPorSegundo - 1);
+            const ny = yClip + hClip - 6 - ((n.nota - notaMin) / rango) * (hClip - 16) - hNota;
+            ctx.fillRect(nx, ny, nw, hNota);
+          }
         }
       } else {
-        for (let x = desde; x < hasta; x += 2) {
-          const n = Math.floor((x - x0) / 2);
-          const amplitud = (0.25 + 0.75 * ruido(clip.semilla || 7, n)) * (0.6 + 0.4 * Math.sin(n * 0.09));
-          const a = Math.abs(amplitud) * margen;
-          ctx.moveTo(x + 0.5, centro - a);
-          ctx.lineTo(x + 0.5, centro + a + 1);
+        const entrada = picosDe(clip);
+        if (entrada && columnas > 0) {
+          const visibleDesde = (clip.desfase || 0) + (segundosDeX(desde) - inicio);
+          const visibleDuracion = (hasta - desde) / pxPorSegundo;
+          const cortados = recortarPicos(entrada.picos, entrada.porSegundo, visibleDesde, visibleDuracion, columnas);
+          for (let k = 0; k < columnas; k += 1) {
+            const a = (cortados[k] / 100) * margen;
+            const x = desde + k * 2;
+            ctx.moveTo(x + 0.5, centro - a);
+            ctx.lineTo(x + 0.5, centro + a + 1);
+          }
+        } else {
+          for (let x = desde; x < hasta; x += 2) {
+            const n = Math.floor((x - x0) / 2);
+            const amplitud = (0.25 + 0.75 * ruido(clip.semilla || 7, n)) * (0.6 + 0.4 * Math.sin(n * 0.09));
+            const a = Math.abs(amplitud) * margen;
+            ctx.moveTo(x + 0.5, centro - a);
+            ctx.lineTo(x + 0.5, centro + a + 1);
+          }
         }
+        ctx.stroke();
       }
-      ctx.stroke();
 
       ctx.fillStyle = color.texto;
       ctx.font = '600 11px Karla, sans-serif';

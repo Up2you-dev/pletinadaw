@@ -195,9 +195,9 @@ svg{display:block; fill:none; stroke:currentColor; stroke-width:1.7; stroke-line
   white-space:nowrap; overflow:hidden;
 }
 .canal .db{font-family:var(--ff-mono); font-size:11px; color:var(--muted); text-align:center}
-.canal .botones{display:flex; gap:4px; justify-content:center}
+.canal .botones{display:grid; grid-template-columns:repeat(4, 1fr); gap:3px}
 .canal .botones button{
-  width:24px; height:22px; font-size:10.5px; font-weight:700; border-radius:5px;
+  height:22px; font-size:10.5px; font-weight:700; border-radius:5px; padding:0;
   border:1px solid var(--line); background:var(--panel); cursor:pointer; color:var(--muted);
 }
 .canal .botones button[aria-pressed="true"].m{background:var(--danger-soft); color:var(--danger); border-color:var(--danger)}
@@ -250,6 +250,45 @@ svg{display:block; fill:none; stroke:currentColor; stroke-width:1.7; stroke-line
   border-radius:5px; border:1px solid var(--line); background:var(--panel-2); color:var(--muted);
 }
 .inspector-clip .warp.encendido{background:var(--signal-soft); color:var(--signal); border-color:var(--signal)}
+.inspector-clip .abrir-notas{
+  justify-self:start; font-size:10.5px; font-weight:700; padding:3px 9px; cursor:pointer;
+  border-radius:5px; border:1px solid var(--accent); background:var(--accent-soft); color:var(--accent);
+}
+.inspector-clip .abrir-notas:hover{background:var(--accent); color:var(--accent-ink)}
+
+/* ---------- piano roll ---------- */
+.piano-roll{
+  position:fixed; inset:0; z-index:60; display:grid; place-items:center;
+  background:rgba(0,0,0,.45); backdrop-filter:blur(2px);
+}
+.piano-caja{
+  width:min(860px, 92vw); background:var(--panel); border:1px solid var(--line);
+  border-radius:var(--r); box-shadow:var(--shadow); overflow:hidden;
+}
+.piano-cabeza{
+  display:flex; align-items:center; gap:14px; padding:8px 12px;
+  border-bottom:1px solid var(--line);
+}
+.piano-cabeza .titulo{font-family:var(--ff-display); font-weight:700; font-size:13px; margin-right:auto}
+.piano-cabeza label{font-size:11px; color:var(--muted); display:flex; align-items:center; gap:5px}
+.piano-cabeza select{
+  font:inherit; color:var(--text); background:var(--panel-2);
+  border:1px solid var(--line); border-radius:5px; padding:2px 4px;
+}
+.piano-cabeza .cerrar{
+  width:24px; height:24px; border-radius:6px; border:1px solid var(--line);
+  background:transparent; color:var(--muted-2); cursor:pointer;
+}
+.piano-cabeza .cerrar:hover{color:var(--danger); border-color:var(--danger)}
+.piano-scroll{max-height:min(480px, 62vh); overflow:auto}
+.piano-scroll canvas{display:block}
+
+/* armar y grabar */
+.canal .botones button.r{color:var(--muted-2)}
+.canal .botones button[aria-pressed="true"].r{background:var(--danger-soft); color:var(--danger); border-color:var(--danger)}
+#b-grabar{color:var(--danger); font-size:15px}
+#b-grabar[aria-pressed="true"]{background:var(--danger); color:#fff; border-color:var(--danger); animation:latido 1s infinite}
+@keyframes latido{50%{opacity:.55}}
 .tira .insertar{position:relative; flex:none}
 .tira .mas{
   width:44px; height:96px; border-radius:var(--r); border:1px dashed var(--line);

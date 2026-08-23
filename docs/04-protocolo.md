@@ -23,29 +23,30 @@ Códigos de error al estilo JSON-RPC: `-32700` JSON ilegible, `-32601` método
 desconocido, `-32000` fallo de la operación (el mensaje viene en castellano y
 se puede enseñar tal cual).
 
-## Métodos (estado F3)
+## Métodos (estado F4)
 
 | Zona | Métodos | Notas |
 |---|---|---|
-| saludo | `hola`, `dispositivos.listar` | `hola` anuncia `capacidades[]` y la `suite[]` disponible |
+| saludo | `hola`, `dispositivos.listar`, `dispositivos.tono {frecuencia?, nota?}` | `hola` anuncia `capacidades[]` y la `suite[]`; `dispositivos.tono` solo existe en `--sin-audio`: mete un tono y/o una nota MIDI de prueba por la entrada de la bomba (así el CI graba de verdad) |
 | proyecto | `proyecto.nuevo {carpeta}`, `proyecto.abrir {ruta}`, `proyecto.guardar` | el proyecto es una carpeta con `proyecto.tracktionedit` y `media/` |
 | modelo | `pistas.listar` | la foto completa (ver evento `modelo`) |
-| pistas | `pista.crear`, `pista.borrar`, `pista.renombrar`, `pista.mezcla {volumenDb, pan, mute, solo}`, `pista.envio {pista, bus, nivelDb}`, `pista.congelar {pista, activo}` | `pista.mezcla` no emite `modelo`: los faders disparan decenas por segundo. `pista.envio` crea el retorno del bus si no existe |
+| pistas | `pista.crear`, `pista.borrar`, `pista.renombrar`, `pista.mezcla {volumenDb, pan, mute, solo}`, `pista.envio {pista, bus, nivelDb}`, `pista.congelar {pista, activo}`, `pista.armar {pista, activo, entrada?, midi?}` | `pista.mezcla` no emite `modelo`: los faders disparan decenas por segundo. `pista.envio` crea el retorno del bus si no existe. `pista.armar` asigna la entrada (de audio o MIDI) y enciende el armado |
 | clips | `clip.importar {pista, ruta, inicio}`, `clip.mover {id, inicio, pista?}`, `clip.recortar {id, inicio, fin}`, `clip.dividir {id, segundos}`, `clip.duplicar {id}`, `clip.fundidos {id, entrada, salida}`, `clip.borrar {id}`, `clip.picos {id, porSegundo}`, `clip.warp {id, autoTempo?, bpmFuente?, transposicion?, modo?}` | importar copia el audio a `media/` y detecta el tempo de origen (SoundTouch, primer minuto); `clip.warp` enciende el autoTempo (el clip sigue el tempo del proyecto), corrige el BPM de origen, transpone en semitonos y elige el modo de stretch (`normal`/`mejor`) |
-| suite | `plugin.insertar {pista, tipo, indice}`, `plugin.quitar`, `plugin.parametro {parametro, valor}`, `plugin.activar`, `plugin.presets {tipo}`, `plugin.preset.guardar {pista, indice, nombre}`, `plugin.preset.cargar {pista, indice, nombre}` | `pista = -1` es el máster; los tipos válidos vienen en `hola.suite`; presets de fábrica y de usuario |
+| MIDI | `clip.midi.crear {pista, inicio, compases}`, `clip.midi.notas {id, notas[{nota, inicio, duracion, velocidad}]}`, `clip.midi.cuantizar {id, division}` | el respaldo del piano roll: las notas van en pulsos (beats) y se sustituyen en bloque (una transacción, un deshacer); la cuantización es no destructiva y usa las divisiones de T.E. ("1/4 beat"…) |
+| suite | `plugin.insertar {pista, tipo, indice}`, `plugin.quitar`, `plugin.parametro {parametro, valor}`, `plugin.activar`, `plugin.presets {tipo}`, `plugin.preset.guardar {pista, indice, nombre}`, `plugin.preset.cargar {pista, indice, nombre}` | `pista = -1` es el máster; los tipos válidos vienen en `hola.suite` (efectos e instrumentos); presets de fábrica y de usuario |
 | automatización | `automatizacion.puntos {pista, parametro, puntos[{t, v}]}` | `volumen`, `pan` o cualquier parámetro de la suite; volumen en dB |
-| transporte | `transporte.tocar/parar/irA/estado/tempo/metronomo/bucle` | cambiar el tempo remapea posiciones a compás y estira los clips con autoTempo |
+| transporte | `transporte.tocar/grabar/parar/irA/estado/tempo/metronomo/bucle` | `grabar {cuenta?}` graba en las pistas armadas (con claqueta de un compás si `cuenta`); `parar` remata la toma; cambiar el tempo remapea posiciones a compás y estira los clips con autoTempo |
 | deshacer | `deshacer.deshacer`, `deshacer.rehacer` | cada orden mutadora es una transacción |
 | render | `render.exportar {ruta, stems?, lufsObjetivo?}` | WAV o FLAC por extensión; `stems` exporta pista a pista; `lufsObjetivo` normaliza en dos pasadas y se verifica midiendo el archivo |
 | fin | `salir` | |
 
-## Eventos (estado F3)
+## Eventos (estado F4)
 
 | Evento | Cuándo | Datos |
 |---|---|---|
 | `arrancado` | al nacer el proceso | `version`, `audio` |
-| `modelo` | tras cada orden que muta el proyecto | la foto completa: `proyecto`, `bpm`, `metronomo`, `bucle`, `pistas[]` (con `clips[]` —posición, fundidos, `autoTempo`, `transposicion`, `bpmFuente`—, `plugins[]` con sus `parametros[]` descriptores, `envios[]`, `retorno`, `congelada` y `automatizacionVolumen[]`), `master` |
-| `medidores` | ~15 Hz mientras reproduce (y una última al parar) | `segundos`, `reproduciendo`, `izq`, `der` (dBFS), `pistas[]` (VU por pista) y, si hay Medidor en el máster, `lufs {m, s, i, lra, correlacion, pico, picoVerdadero}` y `espectro[24]` |
+| `modelo` | tras cada orden que muta el proyecto | la foto completa: `proyecto`, `bpm`, `metronomo`, `bucle`, `pistas[]` (con `clips[]` —`tipo` audio/midi; los de audio con posición, fundidos, `autoTempo`, `transposicion` y `bpmFuente`; los MIDI con `notas[]` y `cuantizacion`—, `plugins[]` con sus `parametros[]` descriptores, `envios[]`, `retorno`, `congelada`, `armada` y `automatizacionVolumen[]`), `master` |
+| `medidores` | ~15 Hz mientras reproduce (y una última al parar) | `segundos`, `reproduciendo`, `grabando`, `izq`, `der` (dBFS), `pistas[]` (VU por pista) y, si hay Medidor en el máster, `lufs {m, s, i, lra, correlacion, pico, picoVerdadero}` y `espectro[24]` |
 | `render.terminado` | al acabar una exportación | `ruta`, `ok` |
 | `prueba` | solo con `--prueba` | los veredictos de la autoprueba |
 

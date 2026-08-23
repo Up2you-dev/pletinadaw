@@ -15,6 +15,7 @@ export const estado = {
   proyecto: { ruta: '', nombre: 'sin guardar', modificado: false },
 
   reproduciendo: false,
+  grabando: false,
   // Última posición confirmada por el motor y su instante local, para que el
   // cursor interpole fino entre eventos (llegan a ~15 Hz).
   segundos: 0,
@@ -30,6 +31,7 @@ export const estado = {
   pistaSeleccionada: -1,          // -1 = máster (la tira enseña su cadena)
   seleccion: new Set(),           // ids de clips seleccionados
   exportando: false,
+  pianoRoll: null,                // id del clip MIDI abierto en el piano roll
 
   pistas: [],
   master: { volumenDb: 0, pan: 0, plugins: [] },

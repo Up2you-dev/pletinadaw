@@ -150,23 +150,38 @@ rejilla sin artefactos evidentes (verificado en CI con la proporción exacta
 coloreada solo con la suite vintage justifica sus nombres (los quince suenan
 y persisten; el juicio de carácter, pendiente de A/B humano).
 
-## F4 · Grabar y MIDI
+## F4 · Grabar y MIDI · CONSTRUIDA (núcleo)
 
 El DAW se llena de entradas.
 
-- [ ] Grabación de audio: selección de dispositivo/canales (WASAPI/ASIO),
-      monitorización con latencia visible, count-in, punch in/out, tomas en
-      capas con elección posterior.
-- [ ] Pistas MIDI: dispositivos de entrada, grabación con cuantización no
-      destructiva, piano roll completo (velocidad, controladores, escala,
-      arrastre de acordes), edición de compases.
-- [ ] Instrumentos: **Cinta, Pads y Bruma** ([instrumentos](07-instrumentos.md)).
-- [ ] Metrónomo grabable, tap tempo.
+- [x] **Grabación de audio**: armar por pista (botón ● de la mesa, con la
+      entrada asignada sola), grabar desde el transporte (⏺ o tecla R, con
+      claqueta de un compás con Mayús), y la toma aparece como clip con su
+      WAV dentro de la carpeta del proyecto. Verificada de punta a punta en
+      CI: la bomba del modo sin audio tiene entradas y una señal de prueba
+      (`dispositivos.tono`) que hace de micrófono, y la autoprueba graba
+      0,8 s y comprueba el archivo y su pico. Pendiente: selección de
+      dispositivo/canales concretos (WASAPI/ASIO con hardware real),
+      monitorización con latencia visible, punch in/out, tomas en capas.
+- [x] **Pistas MIDI**: clips MIDI (doble clic en el vacío los crea), piano
+      roll flotante (pintar, mover, transponer, alargar, borrar con
+      Alt+clic, velocidad con la rueda, rejilla elegible), cuantización no
+      destructiva por clip con las divisiones del motor, y **grabación MIDI**
+      verificada en CI con la nota de prueba por la entrada MIDI hospedada.
+      Pendiente: dispositivos MIDI físicos con hardware real, controladores
+      (CC), escalas, arrastre de acordes, edición de compases.
+- [x] Instrumentos: **Cinta, Pads y Bruma** construidos en su v1 y sonando
+      (la autoprueba lo verifica con la Bruma en solo; el detalle honesto de
+      qué tiene cada uno y qué falta, en
+      [instrumentos](07-instrumentos.md)).
+- [ ] Metrónomo grabable y tap tempo (el metrónomo existe desde F1; el tap,
+      pendiente).
 - [ ] Afinador.
 
-**Hecho cuando**: se graba una voz sobre stems con monitorización cómoda, se
-programa una batería en Pads con el piano roll, y todo sobrevive al
-guardar/abrir.
+**Hecho cuando**: se graba una voz sobre stems con monitorización cómoda
+(pendiente: exige hardware real), se programa una batería en Pads con el
+piano roll (hecho), y todo sobrevive al guardar/abrir (verificado en CI:
+notas, cuantización e instrumentos vuelven enteros).
 
 ## F5 · VST3 y Session View
 

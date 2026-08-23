@@ -4,6 +4,7 @@ import { montarRail } from './ui/rail.js';
 import { montarArreglo, pintar as pintarArreglo, olvidarPicos } from './ui/arreglo.js';
 import { montarMesa, pintarMesa, pintarVU } from './ui/mesa.js';
 import { montarTira, pintarTira } from './ui/tira.js';
+import { montarPiano, pintarPiano } from './ui/piano.js';
 import { aviso, $ } from './ui/dom.js';
 
 /**
@@ -38,6 +39,22 @@ async function conmutar() {
     }
   } else {
     cambiar({ segundos: posicionParaPintar(), reproduciendo: !estado.reproduciendo, refrescadoEn: performance.now() });
+  }
+  pintarBoton();
+}
+
+async function grabar(conCuenta) {
+  if (!conectado()) return soloConMotor();
+  if (estado.grabando) return conmutar(); // grabando, el mismo botón para = parar
+  if (!estado.pistas.some((p) => p.armada)) {
+    return aviso('Arma primero una pista con su botón ● de la mesa.');
+  }
+  try {
+    const r = await orden('transporte.grabar', conCuenta ? { cuenta: true } : {});
+    cambiar({ reproduciendo: !!r.reproduciendo, grabando: !!r.grabando,
+              segundos: r.segundos ?? estado.segundos, refrescadoEn: performance.now() });
+  } catch (error) {
+    aviso(error.message);
   }
   pintarBoton();
 }
@@ -203,6 +220,17 @@ const accionesArreglo = {
     if (conectado()) orden('automatizacion.puntos', { pista: fila, parametro: 'volumen', puntos }).catch((e) => aviso(e.message));
   },
 
+  alAbrirPianoRoll(id) {
+    cambiar({ pianoRoll: id });
+  },
+
+  alCrearClipMidi(fila, inicio) {
+    if (!conectado()) return soloConMotor();
+    orden('clip.midi.crear', { pista: fila, inicio, compases: 1 })
+      .then((r) => cambiar({ pianoRoll: r.id, seleccion: new Set([r.id]) }))
+      .catch((e) => aviso(e.message));
+  },
+
   alRenombrarPista(fila, nombreActual, caja) {
     const entrada = document.createElement('input');
     entrada.className = 'renombrar';
@@ -266,6 +294,7 @@ async function dividirEnCursor() {
 
 montarTransporte({
   alConmutar: conmutar,
+  alGrabar: grabar,
   alIrA: irA,
   alNuevoProyecto: nuevoProyecto,
   alAbrirProyecto: abrirProyecto,
@@ -305,6 +334,10 @@ montarMesa({
     if (!conectado()) return soloConMotor();
     orden('pista.congelar', { pista: fila, activo }).catch((e) => aviso(e.message));
   },
+  alArmar: (fila, activo) => {
+    if (!conectado()) return soloConMotor();
+    orden('pista.armar', { pista: fila, activo }).catch((e) => aviso(e.message));
+  },
 });
 montarTira({
   alInsertarPlugin: (pista, tipo) => {
@@ -342,6 +375,22 @@ montarTira({
     if (!conectado()) return soloConMotor();
     orden('clip.warp', { id, ...params }).catch((e) => aviso(e.message));
   },
+  alAbrirPianoRoll: (id) => cambiar({ pianoRoll: id }),
+});
+montarPiano({
+  alNotasMidi: (id, notas) => {
+    // Optimista sobre la réplica: el piano roll no parpadea mientras editas.
+    const pistas = estado.pistas.map((p) => ({
+      ...p,
+      clips: (p.clips || []).map((c) => (c.id === id ? { ...c, notas } : c)),
+    }));
+    cambiar({ pistas });
+    if (conectado()) orden('clip.midi.notas', { id, notas }).catch((e) => aviso(e.message));
+  },
+  alCuantizar: (id, division) => {
+    if (!conectado()) return soloConMotor();
+    orden('clip.midi.cuantizar', { id, division }).catch((e) => aviso(e.message));
+  },
 });
 pintarChipMotor();
 
@@ -373,6 +422,7 @@ if (puente) {
       cambiar({
         segundos: datos.segundos ?? estado.segundos,
         reproduciendo: !!datos.reproduciendo,
+        grabando: !!datos.grabando,
         refrescadoEn: performance.now(),
         medidores: {
           izq: datos.izq ?? -100,
@@ -397,7 +447,7 @@ if (puente) {
 
 suscribir((_estado, cambios) => {
   if ('motor' in cambios) pintarChipMotor();
-  if ('reproduciendo' in cambios || 'metronomo' in cambios) pintarBoton();
+  if ('reproduciendo' in cambios || 'metronomo' in cambios || 'grabando' in cambios) pintarBoton();
   if ('proyecto' in cambios || 'bpm' in cambios || 'exportando' in cambios) pintarProyecto();
   if ('pistas' in cambios || 'master' in cambios || 'pistaSeleccionada' in cambios) {
     pintarMesa();
@@ -405,15 +455,27 @@ suscribir((_estado, cambios) => {
   } else if ('seleccion' in cambios) {
     pintarTira(); // el inspector de clip vive en la tira
   }
+  if ('pianoRoll' in cambios || 'pistas' in cambios) pintarPiano();
   if ('proyecto' in cambios || 'pistas' in cambios) montarRail();
 });
 
 /* ---------- atajos ---------- */
 
 window.addEventListener('keydown', (evento) => {
-  if (evento.target.matches('input, textarea')) return;
+  if (evento.target.matches('input, textarea, select')) return;
 
   const ctrl = evento.ctrlKey || evento.metaKey;
+
+  // Con el piano roll abierto los atajos de edición del arrangement callan.
+  if (estado.pianoRoll !== null) {
+    if (evento.key === 'Escape') cambiar({ pianoRoll: null });
+    else if (evento.code === 'Space') { evento.preventDefault(); conmutar(); }
+    else if (ctrl && evento.key.toLowerCase() === 'z') {
+      evento.preventDefault();
+      if (conectado()) orden(evento.shiftKey ? 'deshacer.rehacer' : 'deshacer.deshacer').catch(() => {});
+    }
+    return;
+  }
 
   if (ctrl && evento.key.toLowerCase() === 'z') {
     evento.preventDefault();
@@ -438,6 +500,8 @@ window.addEventListener('keydown', (evento) => {
     borrarSeleccion();
   } else if (evento.key === 't' || evento.key === 'T') {
     dividirEnCursor();
+  } else if (evento.key === 'r' || evento.key === 'R') {
+    grabar(evento.shiftKey);
   } else if (evento.key === 'a' || evento.key === 'A') {
     cambiar({ automatizando: !estado.automatizando });
     aviso(estado.automatizando

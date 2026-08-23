@@ -83,9 +83,9 @@ export const CATALOGO = [
   {
     grupo: 'Instrumentos',
     dispositivos: [
-      { nombre: 'Cinta', detalle: 'sampler: arrastra y toca', fase: 4 },
-      { nombre: 'Pads', detalle: '16 pads de batería', fase: 4 },
-      { nombre: 'Bruma', detalle: 'sinte sustractivo', fase: 4 },
+      { nombre: 'Cinta', detalle: 'sampler de una muestra', fase: 4, tipo: 'cinta', lista: true },
+      { nombre: 'Pads', detalle: '16 pads de batería', fase: 4, tipo: 'pads', lista: true },
+      { nombre: 'Bruma', detalle: 'sinte sustractivo', fase: 4, tipo: 'bruma', lista: true },
     ],
   },
 ];
