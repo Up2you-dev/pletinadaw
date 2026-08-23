@@ -71,7 +71,7 @@ Motor::Motor (Opciones o, std::function<void (const juce::String&)> e)
         te::HostedAudioDeviceInterface::Parameters parametros;
         parametros.sampleRate = opciones.frecuencia;
         parametros.blockSize = opciones.bloque;
-        parametros.inputChannels = 0;
+        parametros.inputChannels = 2;   // la bomba también es la "entrada": se graba de ella
         parametros.outputChannels = 2;
 
         audioIO.initialise (parametros);
@@ -381,6 +381,12 @@ juce::var Motor::listarPistas()
         pon (p, "retorno", esRetorno);
         pon (p, "congelada", pista->isFrozen (te::Track::individualFreeze));
 
+        bool armada = false;
+        if (auto* contexto = edit->getCurrentPlaybackContext())
+            for (auto* instancia : contexto->getAllInputs())
+                armada = armada || instancia->isRecordingEnabled (pista->itemID);
+        pon (p, "armada", armada);
+
         // La curva de volumen, para el carril de automatización de la interfaz.
         juce::Array<juce::var> curvaVolumen;
         if (auto* volumen = pista->getVolumePlugin())
@@ -601,7 +607,7 @@ juce::var Motor::warpClip (const juce::String& id, const juce::var& params)
     }
 
     if (params.hasProperty ("modo"))
-        objetivo->setTimeStretchMode (juce::String (params["modo"]) == "normal"
+        objetivo->setTimeStretchMode (params["modo"].toString() == "normal"
                                           ? te::TimeStretcher::soundtouchNormal
                                           : te::TimeStretcher::soundtouchBetter);
 
@@ -967,6 +973,42 @@ juce::var Motor::congelarPista (int indice, bool activo)
     return juce::var (objetivo->isFrozen (te::Track::individualFreeze));
 }
 
+juce::var Motor::armarPista (int indice, bool activo, int entrada)
+{
+    asegurarEdit();
+    auto* objetivo = pista (indice);
+    if (objetivo == nullptr)
+        throw std::runtime_error ("no existe la pista");
+
+    // Las entradas viven en el contexto de reproducción: se crea si no está.
+    edit->getTransport().ensureContextAllocated();
+    auto* contexto = edit->getCurrentPlaybackContext();
+    if (contexto == nullptr)
+        throw std::runtime_error ("no hay contexto de reproducción");
+
+    juce::Array<te::InputDeviceInstance*> entradas;
+    for (auto* instancia : contexto->getAllInputs())
+        if (instancia->getInputDevice().getDeviceType() == te::InputDevice::waveDevice)
+            entradas.add (instancia);
+
+    if (entradas.isEmpty())
+        throw std::runtime_error ("no hay entradas de audio que armar");
+
+    auto* instancia = entradas[juce::jlimit (0, entradas.size() - 1, entrada)];
+
+    if (activo)
+    {
+        const auto destino = instancia->setTarget (objetivo->itemID, true, &edit->getUndoManager(), 0);
+        if (! destino.has_value())
+            throw std::runtime_error ("no se pudo asignar la entrada: " + destino.error().toStdString());
+    }
+    instancia->setRecordingEnabled (objetivo->itemID, activo);
+
+    edit->dispatchPendingUpdatesSynchronously();
+    emitirModelo();
+    return listarPistas();
+}
+
 namespace
 {
     juce::File carpetaPresets (const juce::String& tipo)
@@ -1202,15 +1244,39 @@ juce::var Motor::estadoTransporte() const
     {
         auto& transporte = edit->getTransport();
         pon (r, "reproduciendo", transporte.isPlaying());
+        pon (r, "grabando", transporte.isRecording());
         pon (r, "segundos", transporte.getPosition().inSeconds());
     }
     else
     {
         pon (r, "reproduciendo", false);
+        pon (r, "grabando", false);
         pon (r, "segundos", 0.0);
     }
 
     return r;
+}
+
+juce::var Motor::grabar (const juce::var& params)
+{
+    asegurarEdit();
+
+    const bool cuenta = params.hasProperty ("cuenta") && (bool) params["cuenta"];
+    edit->setCountInMode (cuenta ? te::Edit::CountIn::oneBar : te::Edit::CountIn::none);
+
+    auto& transporte = edit->getTransport();
+    transporte.ensureContextAllocated();
+    transporte.record (false);
+    return estadoTransporte();
+}
+
+juce::var Motor::tonoDePrueba (double frecuencia)
+{
+    if (! opciones.sinAudio)
+        throw std::runtime_error ("la señal de prueba solo existe en el modo sin audio");
+
+    tonoEntrada.store (frecuencia > 0.0 ? (float) juce::jlimit (20.0, 20000.0, frecuencia) : 0.0f);
+    return juce::var (true);
 }
 
 juce::var Motor::tempo (double bpm)
@@ -1576,9 +1642,29 @@ void Motor::arrancarBomba()
             (long long) (1.0e9 * opciones.bloque / opciones.frecuencia));
         auto siguiente = std::chrono::steady_clock::now();
 
+        double faseEntrada = 0.0;
+
         while (bombaViva.load())
         {
             buffer.clear();
+
+            // La señal de prueba entra por donde entraría un micrófono: en el
+            // buffer ANTES de processBlock, que lo lee como entrada.
+            const float frecuenciaTono = tonoEntrada.load();
+            if (frecuenciaTono > 0.0f)
+            {
+                const double paso = 2.0 * juce::MathConstants<double>::pi * frecuenciaTono / opciones.frecuencia;
+                for (int i = 0; i < buffer.getNumSamples(); ++i)
+                {
+                    const float v = 0.25f * (float) std::sin (faseEntrada);
+                    faseEntrada += paso;
+                    if (faseEntrada > 2.0 * juce::MathConstants<double>::pi)
+                        faseEntrada -= 2.0 * juce::MathConstants<double>::pi;
+                    for (int c = 0; c < buffer.getNumChannels(); ++c)
+                        buffer.setSample (c, i, v);
+                }
+            }
+
             midi.clear();
             audioIO.processBlock (buffer, midi);
 
@@ -1772,6 +1858,33 @@ int Motor::autoprueba()
             bpmVuelta = c["bpmFuente"];
         }
 
+    // Grabar de verdad: tono de prueba en la entrada de la bomba, la pista 3
+    // armada, y unas décimas de transporte en marcha. La toma tiene que
+    // aparecer como clip con archivo y con el tono dentro.
+    tonoEntrada.store (330.0f);
+    armarPista (2, true, 0);
+    grabar (objeto());
+    pausa (800);
+    parar();
+    tonoEntrada.store (0.0f);
+    pausa (300);
+
+    double duracionGrabada = 0.0;
+    float picoGrabado = 0.0f;
+    if (auto* pistaGrabada = pista (2))
+        if (auto* toma = dynamic_cast<te::WaveAudioClip*> (pistaGrabada->getClips().getLast()))
+        {
+            duracionGrabada = toma->getPosition().getLength().inSeconds();
+            std::unique_ptr<juce::AudioFormatReader> lector (formatos().createReaderFor (toma->getCurrentSourceFile()));
+            if (lector != nullptr && lector->lengthInSamples > 0)
+            {
+                juce::AudioBuffer<float> b ((int) lector->numChannels,
+                                            (int) juce::jmin ((juce::int64) 96000, lector->lengthInSamples));
+                lector->read (&b, 0, b.getNumSamples(), 0, true, true);
+                picoGrabado = b.getMagnitude (0, b.getNumSamples());
+            }
+        }
+
     const bool avanza = segundos > 0.25;
     const bool suena = pico > 0.05f;
     const bool deshace = clipsTrasDeshacer == 3;
@@ -1784,7 +1897,8 @@ int Motor::autoprueba()
     const bool warpea = std::abs (duracionWarp - 0.4) < 0.02
                      && std::abs (transposicionVuelta - 5.0) < 0.01
                      && std::abs (bpmVuelta - 120.0) < 0.5;
-    const bool ok = avanza && suena && deshace && renderiza && persiste && automatiza && normaliza && warpea;
+    const bool graba = duracionGrabada > 0.4 && picoGrabado > 0.15f;
+    const bool ok = avanza && suena && deshace && renderiza && persiste && automatiza && normaliza && warpea && graba;
 
     auto r = objeto();
     pon (r, "ok", ok);
@@ -1800,6 +1914,8 @@ int Motor::autoprueba()
     pon (r, "duracionWarp", duracionWarp);
     pon (r, "transposicionVuelta", transposicionVuelta);
     pon (r, "bpmFuenteVuelta", bpmVuelta);
+    pon (r, "duracionGrabada", duracionGrabada);
+    pon (r, "picoGrabado", picoGrabado);
     emitir (protocolo::evento ("prueba", r));
 
     return ok ? 0 : 1;
