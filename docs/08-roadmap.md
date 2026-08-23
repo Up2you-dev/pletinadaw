@@ -243,11 +243,12 @@ Lo que separa "funciona" de "se recomienda".
       pared o la foto del modelo tarda; en el contenedor de CI: creación en
       ~26 ms, modelo en 1 ms y transporte clavado (3,008 s en 3,009 s).
       Pendiente: medidor de CPU/disco por pista y auditoría de PDC.
-- [x] **Manual en español** escrito ([manual](manual.md)): primeros pasos,
-      editar, mezclar, grabar, MIDI, sesión, VST3 y exportar. Pendiente: el
-      visor dentro de la app y las visitas guiadas de primer arranque (la
-      ayuda de atajos ya vive en `?`).
-- [ ] Navegador de contenidos (búsqueda, audición, favoritos, arrastre).
+- [x] **Manual en español dentro de la app**: escrito ([manual](manual.md))
+      y servido en la pestaña Manual de la ayuda (`?`), también en la app
+      empaquetada. Pendiente: las visitas guiadas de primer arranque.
+- [x] **Navegador de sonidos, lo básico**: sección Sonidos en el rail —
+      elegir carpeta, listar sus audios y clic para importar en el cursor.
+      Pendiente: audición previa, búsqueda, favoritos y arrastre.
 - [ ] Actualizador que avisa (no que fuerza).
 - [ ] Beta pública, triaje, y corte de v1.0.
 
@@ -266,7 +267,7 @@ La foto honesta, de una pasada:
 | F3 clásicos y warp | ✅ | 15 clásicos sonando; warp 120→150 exacto | marcadores de warp, RubberBand, escucha con material real |
 | F4 grabar y MIDI | ✅ núcleo | grabación de audio y MIDI reales en CI; Bruma sonando | WASAPI/ASIO y MIDI físicos, punch, tomas en capas, afinador |
 | F5 VST3 y sesión | ✅ núcleo | hosting con VST3 real (−6 dB exactos) y lanzamiento en sesión | editores nativos, plugins comerciales, grupos, racks, sidechain |
-| F6 pulido | 🔨 | humo de 38 tipos, carga de 100 pistas, empaquetado validado | navegador, visor del manual, CPU por pista, beta y corte v1.0 |
+| F6 pulido | 🔨 | humo de 38 tipos, carga de 100 pistas, empaquetado validado, manual en la app | audición del navegador, CPU por pista, renders dorados finos, beta y corte v1.0 |
 
 Regla de lectura: "✅ núcleo" = el corazón de la fase funciona y está
 verificado; los flecos están listados en su sección y no se esconden. Lo
