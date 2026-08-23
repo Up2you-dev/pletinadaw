@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { writeFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { app, BrowserWindow, dialog, ipcMain, nativeTheme } from 'electron';
 
 import { registerSchemes, handleProtocols, appUrl } from './protocols.js';
@@ -69,6 +69,55 @@ app.whenReady().then(() => {
   ipcMain.handle('motor:orden', (_evento, metodo, params) => motor.orden(metodo, params));
   ipcMain.handle('motor:estado', () => motor.estado());
   ipcMain.handle('app:version', () => app.getVersion());
+
+  // El navegador de sonidos: una carpeta elegida y sus audios (primer nivel
+  // y un nivel de subcarpetas; con audición y favoritos ya vendrá el fino).
+  ipcMain.handle('sonidos:elegirCarpeta', async () => {
+    const r = await dialog.showOpenDialog(ventana, {
+      title: 'Carpeta de sonidos',
+      properties: ['openDirectory'],
+    });
+    if (r.canceled) return null;
+    const carpeta = r.filePaths[0];
+    const AUDIO = new Set(['.wav', '.mp3', '.flac', '.ogg', '.aif', '.aiff']);
+    const archivos = [];
+    const { readdir } = await import('node:fs/promises');
+    const explorar = async (dir, hondura) => {
+      let entradas = [];
+      try {
+        entradas = await readdir(dir, { withFileTypes: true });
+      } catch {
+        return;
+      }
+      for (const entrada of entradas) {
+        const ruta = path.join(dir, entrada.name);
+        if (entrada.isDirectory() && hondura > 0) await explorar(ruta, hondura - 1);
+        else if (entrada.isFile() && AUDIO.has(path.extname(entrada.name).toLowerCase())) {
+          archivos.push({ nombre: entrada.name, ruta });
+          if (archivos.length >= 500) return;
+        }
+      }
+    };
+    await explorar(carpeta, 1);
+    archivos.sort((a, b) => a.nombre.localeCompare(b.nombre));
+    return { carpeta, archivos };
+  });
+
+  // El manual, dentro de la app: del repo en desarrollo, de resources/ empaquetada.
+  ipcMain.handle('manual:leer', async () => {
+    const candidatas = [
+      process.resourcesPath ? path.join(process.resourcesPath, 'manual.md') : null,
+      path.join(raizRepo, 'docs', 'manual.md'),
+    ].filter(Boolean);
+    for (const ruta of candidatas) {
+      try {
+        return await readFile(ruta, 'utf8');
+      } catch {
+        // la siguiente candidata
+      }
+    }
+    return null;
+  });
 
   // Diálogos del sistema: la interfaz pide, el proceso principal pregunta.
   ipcMain.handle('dialogo:importarAudio', async () => {

@@ -30,10 +30,14 @@ contextBridge.exposeInMainWorld('pletinadaw', {
     nuevoProyecto: () => invoke('dialogo:nuevoProyecto'),
     abrirProyecto: () => invoke('dialogo:abrirProyecto'),
     exportar: () => invoke('dialogo:exportar'),
+    carpetaSonidos: () => invoke('sonidos:elegirCarpeta'),
   },
 
   /** Ruta real de un File soltado sobre la ventana (arrastrar y soltar). */
   rutaDe: (file) => webUtils.getPathForFile(file),
+
+  /** El manual en Markdown (o null si no aparece). */
+  manual: () => invoke('manual:leer'),
 
   version: () => invoke('app:version'),
 });

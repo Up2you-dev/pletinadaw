@@ -58,6 +58,10 @@
         "filter": [
           "pletina-motor*"
         ]
+      },
+      {
+        "from": "../docs/manual.md",
+        "to": "manual.md"
       }
     ],
     "win": {

@@ -4,12 +4,17 @@ import { CATALOGO } from '../../shared/catalogo.js';
 import { estado } from '../estado.js';
 
 /**
- * El rail: el proyecto arriba y, debajo, el catálogo entero de la suite con
- * su fase de llegada. Enseñar el mapa es parte de la casa: lo que aún no
- * existe se ve en gris con su fase, no se esconde ni se finge.
+ * El rail: el proyecto arriba, el navegador de sonidos (una carpeta elegida,
+ * sus audios, clic importa en el cursor), y debajo el catálogo entero de la
+ * suite con su fase de llegada. Enseñar el mapa es parte de la casa: lo que
+ * aún no existe se ve en gris con su fase, no se esconde ni se finge.
  */
 
-export function montarRail() {
+let acciones = null;
+let sonidos = { carpeta: null, archivos: [] };
+
+export function montarRail(inyectadas) {
+  if (inyectadas) acciones = inyectadas;
   const host = $('#rail');
 
   const clips = estado.pistas.reduce((suma, pista) => suma + pista.clips.length, 0);
@@ -20,6 +25,19 @@ export function montarRail() {
       <span class="detalle">${estado.proyecto.modificado ? 'sin guardar' : ''}</span>
     </div>
     <div class="entrada">${ICO.onda}<span>clips</span><span class="detalle">${clips}</span></div>
+  `;
+
+  const filasSonidos = sonidos.archivos.slice(0, 200).map((archivo) => `
+    <div class="entrada sonido" data-ruta="${esc(archivo.ruta)}" title="clic: importar en el cursor — ${esc(archivo.ruta)}">
+      ${ICO.onda}<span>${esc(archivo.nombre)}</span>
+    </div>`).join('');
+  const navegador = `
+    <h2>Sonidos</h2>
+    <div class="entrada boton-carpeta" title="Elegir la carpeta de sonidos">
+      ${ICO.carpeta}<span>${sonidos.carpeta ? esc(sonidos.carpeta.split(/[\\/]/).pop()) : 'elegir carpeta…'}</span>
+      ${sonidos.archivos.length ? `<span class="detalle">${sonidos.archivos.length}</span>` : ''}
+    </div>
+    ${filasSonidos}
   `;
 
   const grupos = CATALOGO.map(({ grupo, dispositivos }) => {
@@ -33,5 +51,16 @@ export function montarRail() {
     return `<h2>${esc(grupo)}</h2>${filas}`;
   }).join('');
 
-  host.innerHTML = proyecto + grupos;
+  host.innerHTML = proyecto + navegador + grupos;
+
+  host.querySelector('.boton-carpeta')?.addEventListener('click', async () => {
+    const resultado = await acciones?.alElegirCarpetaSonidos?.();
+    if (resultado) {
+      sonidos = resultado;
+      montarRail();
+    }
+  });
+  for (const fila of host.querySelectorAll('.sonido')) {
+    fila.addEventListener('click', () => acciones?.alImportarSonido?.(fila.dataset.ruta));
+  }
 }

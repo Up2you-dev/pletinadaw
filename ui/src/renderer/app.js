@@ -326,7 +326,18 @@ montarTransporte({
   alTema: () => conmutarTema(),
   alAyuda: () => conmutarAyuda(),
 });
-montarRail();
+montarRail({
+  alElegirCarpetaSonidos: async () => {
+    if (!puente) return null;
+    return puente.dialogos.carpetaSonidos();
+  },
+  alImportarSonido: (ruta) => {
+    if (!conectado()) return soloConMotor();
+    const fila = estado.pistaSeleccionada >= 0 ? estado.pistaSeleccionada : 0;
+    orden('clip.importar', { pista: fila, ruta, inicio: posicionParaPintar() })
+      .catch((e) => aviso(e.message));
+  },
+});
 montarArreglo(accionesArreglo);
 montarMesa({
   alSeleccionarPista: (fila) => cambiar({ pistaSeleccionada: fila }),
@@ -552,6 +563,32 @@ const ATAJOS = [
   ['?', 'esta ayuda'],
 ];
 
+/** Markdown mínimo y seguro para el manual: títulos, listas, negrita y código. */
+function mdAHtml(md) {
+  const escapa = (t) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const linea = (t) => escapa(t)
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+  const bloques = [];
+  let lista = null;
+  for (const cruda of md.split('\n')) {
+    const l = cruda.trimEnd();
+    const esItem = /^\s*(?:[-*]|\d+\.)\s+/.test(l);
+    if (!esItem && lista) { bloques.push(`<ul>${lista.join('')}</ul>`); lista = null; }
+    if (/^#{1,3}\s/.test(l)) {
+      const nivel = l.match(/^#+/)[0].length;
+      bloques.push(`<h${nivel + 1}>${linea(l.replace(/^#+\s*/, ''))}</h${nivel + 1}>`);
+    } else if (esItem) {
+      (lista ??= []).push(`<li>${linea(l.replace(/^\s*(?:[-*]|\d+\.)\s+/, ''))}</li>`);
+    } else if (l.trim()) {
+      bloques.push(`<p>${linea(l)}</p>`);
+    }
+  }
+  if (lista) bloques.push(`<ul>${lista.join('')}</ul>`);
+  return bloques.join('');
+}
+
 function conmutarAyuda() {
   const previa = $('#ayuda-atajos');
   if (previa) return previa.remove();
@@ -560,10 +597,27 @@ function conmutarAyuda() {
   capa.className = 'ayuda-atajos';
   capa.innerHTML = `
     <div class="ayuda-caja">
-      <div class="ayuda-cabeza"><span>Atajos de Pletina DAW</span><button class="cerrar">✕</button></div>
+      <div class="ayuda-cabeza">
+        <span>Ayuda de Pletina DAW</span>
+        <button class="ver-manual">Manual</button>
+        <button class="cerrar">✕</button>
+      </div>
       <dl>${ATAJOS.map(([tecla, que]) => `<dt>${tecla}</dt><dd>${que}</dd>`).join('')}</dl>
+      <div class="manual" hidden></div>
     </div>`;
   capa.addEventListener('click', (e) => { if (e.target === capa || e.target.matches('.cerrar')) capa.remove(); });
+  capa.querySelector('.ver-manual').addEventListener('click', async (e) => {
+    const manual = capa.querySelector('.manual');
+    const atajos = capa.querySelector('dl');
+    if (!manual.hidden) { manual.hidden = true; atajos.hidden = false; e.target.textContent = 'Manual'; return; }
+    if (!manual.innerHTML) {
+      const md = puente ? await puente.manual() : null;
+      manual.innerHTML = md ? mdAHtml(md) : '<p>El manual vive en docs/manual.md del repositorio.</p>';
+    }
+    manual.hidden = false;
+    atajos.hidden = true;
+    e.target.textContent = 'Atajos';
+  });
   document.body.appendChild(capa);
 }
 
