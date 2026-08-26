@@ -106,6 +106,8 @@ Motor::~Motor()
         medidorMaestro->measurer.removeClient (clienteMaestro);
     for (size_t i = 0; i < medidoresPista.size(); ++i)
         medidoresPista[i]->measurer.removeClient (*clientesPista[i]);
+    for (size_t i = 0; i < medidoresGrupo.size(); ++i)
+        medidoresGrupo[i]->measurer.removeClient (*clientesGrupo[i]);
 
     edit.reset();
 }
@@ -120,7 +122,8 @@ juce::var Motor::hola() const
     pon (r, "audio", opciones.sinAudio ? "sin-audio" : "dispositivo");
 
     juce::Array<juce::var> capacidades { "transporte", "proyecto", "clips", "picos",
-                                         "mezcla", "suite", "deshacer", "render" };
+                                         "mezcla", "suite", "deshacer", "render",
+                                         "grupos", "racks" };
     pon (r, "capacidades", capacidades);
 
     juce::Array<juce::var> suite;
@@ -187,6 +190,10 @@ void Motor::adoptarEdit (std::unique_ptr<te::Edit> nuevo, const juce::File& carp
         medidoresPista[i]->measurer.removeClient (*clientesPista[i]);
     medidoresPista.clear();
     clientesPista.clear();
+    for (size_t i = 0; i < medidoresGrupo.size(); ++i)
+        medidoresGrupo[i]->measurer.removeClient (*clientesGrupo[i]);
+    medidoresGrupo.clear();
+    clientesGrupo.clear();
 
     edit = std::move (nuevo);
     carpetaProyecto = carpeta;
@@ -344,10 +351,66 @@ juce::var Motor::listarPistas()
                 pon (d, "lateral", fuenteLateral);
             }
 
+            // Un rack: sus macros (con asignaciones) y la subcadena envuelta,
+            // para que la interfaz pinte la tarjeta entera. No hay recursión
+            // posible: el motor veta racks dentro de racks.
+            if (auto* rack = dynamic_cast<te::RackInstance*> (p))
+                if (rack->type != nullptr)
+                {
+                    auto contenidos = rack->type->getPlugins();
+
+                    juce::Array<juce::var> cadenaVar;
+                    int k = 0;
+                    for (auto* contenido : contenidos)
+                    {
+                        auto c = objeto();
+                        pon (c, "indice", k++);
+                        pon (c, "tipo", contenido->getPluginType());
+                        pon (c, "nombre", contenido->getName());
+                        pon (c, "activo", contenido->isEnabled());
+                        pon (c, "parametros", describirParametros (*contenido));
+                        cadenaVar.add (c);
+                    }
+                    pon (d, "cadena", cadenaVar);
+
+                    juce::Array<juce::var> macrosVar;
+                    int m = 0;
+                    for (auto* mp : rack->type->getMacroParameters())
+                    {
+                        auto mv = objeto();
+                        pon (mv, "indice", m++);
+                        pon (mv, "nombre", mp->macroName.get());
+                        pon (mv, "valor", mp->getCurrentValue());
+
+                        juce::Array<juce::var> asignaciones;
+                        int contenidoIdx = 0;
+                        for (auto* contenido : contenidos)
+                        {
+                            for (auto par : contenido->getAutomatableParameters())
+                                for (auto* a : par->getAssignments())
+                                    if (auto* am = dynamic_cast<te::MacroParameter::Assignment*> (a))
+                                        if (am->macroParamID.toString() == mp->paramID)
+                                        {
+                                            auto av = objeto();
+                                            pon (av, "plugin", contenidoIdx);
+                                            pon (av, "parametro", par->paramID);
+                                            pon (av, "cantidad", a->value.get());
+                                            asignaciones.add (av);
+                                        }
+                            ++contenidoIdx;
+                        }
+                        pon (mv, "asignaciones", asignaciones);
+                        macrosVar.add (mv);
+                    }
+                    pon (d, "macros", macrosVar);
+                }
+
             lista.add (d);
         }
         return juce::var (lista);
     };
+
+    auto carpetas = te::getTracksOfType<te::FolderTrack> (*edit, true);
 
     juce::Array<juce::var> pistas;
     int indice = 0;
@@ -360,6 +423,7 @@ juce::var Motor::listarPistas()
         pon (p, "nombre", pista->getName());
         pon (p, "mute", pista->isMuted (false));
         pon (p, "solo", pista->isSolo (false));
+        pon (p, "grupo", carpetas.indexOf (pista->getParentFolderTrack()));
 
         if (auto* volumen = pista->getVolumePlugin())
         {
@@ -477,6 +541,38 @@ juce::var Motor::listarPistas()
         pistas.add (p);
     }
     pon (r, "pistas", pistas);
+
+    // Los grupos (carpetas de submezcla), con su mezcla, sus miembros por
+    // índice plano y su propia cadena de usuario.
+    juce::Array<juce::var> grupos;
+    {
+        auto pistasAudio = te::getAudioTracks (*edit);
+        for (int g = 0; g < carpetas.size(); ++g)
+        {
+            auto* carpeta = carpetas[g];
+            auto gv = objeto();
+            pon (gv, "indice", g);
+            pon (gv, "nombre", carpeta->getName());
+            pon (gv, "mute", carpeta->isMuted (false));
+            pon (gv, "solo", carpeta->isSolo (false));
+
+            if (auto* volumen = carpeta->getVolumePlugin())
+            {
+                pon (gv, "volumenDb", volumen->getVolumeDb());
+                pon (gv, "pan", volumen->getPan());
+            }
+
+            juce::Array<juce::var> miembros;
+            for (int i = 0; i < pistasAudio.size(); ++i)
+                if (pistasAudio[i]->getParentFolderTrack() == carpeta)
+                    miembros.add (i);
+            pon (gv, "pistas", miembros);
+
+            pon (gv, "plugins", describirCadena (cadenaUsuario (-2 - g)));
+            grupos.add (gv);
+        }
+    }
+    pon (r, "grupos", grupos);
 
     auto maestro = objeto();
     if (auto volumen = edit->getMasterVolumePlugin())
@@ -688,6 +784,14 @@ te::AudioTrack* Motor::pista (int indice) const
     return indice >= 0 && indice < pistas.size() ? pistas[indice] : nullptr;
 }
 
+te::FolderTrack* Motor::grupo (int indice) const
+{
+    if (edit == nullptr)
+        return nullptr;
+    auto carpetas = te::getTracksOfType<te::FolderTrack> (*edit, true);
+    return indice >= 0 && indice < carpetas.size() ? carpetas[indice] : nullptr;
+}
+
 juce::var Motor::crearPista()
 {
     asegurarEdit();
@@ -709,6 +813,7 @@ juce::var Motor::borrarPista (int indice)
 
     edit->getUndoManager().beginNewTransaction ("borrar pista");
     edit->deleteTrack (objetivo);
+    recogerRacksHuerfanos();
     emitirModelo();
     return listarPistas();
 }
@@ -716,6 +821,18 @@ juce::var Motor::borrarPista (int indice)
 juce::var Motor::renombrarPista (int indice, const juce::String& nombre)
 {
     asegurarEdit();
+
+    if (indice <= -2)
+    {
+        auto* g = grupo (-2 - indice);
+        if (g == nullptr)
+            throw std::runtime_error ("no existe el grupo");
+        edit->getUndoManager().beginNewTransaction ("renombrar grupo");
+        g->setName (nombre.trim().isEmpty() ? juce::String ("Grupo") : nombre);
+        emitirModelo();
+        return listarPistas();
+    }
+
     auto* objetivo = pista (indice);
     if (objetivo == nullptr)
         throw std::runtime_error ("no existe la pista");
@@ -738,6 +855,20 @@ juce::var Motor::mezclaPista (int indice, const juce::var& params)
             if (params.hasProperty ("pan")) volumen->setPan ((float) (double) params["pan"]);
         }
     }
+    else if (indice <= -2)
+    {
+        auto* g = grupo (-2 - indice);
+        if (g == nullptr)
+            throw std::runtime_error ("no existe el grupo");
+
+        if (auto* volumen = g->getVolumePlugin())
+        {
+            if (params.hasProperty ("volumenDb")) volumen->setVolumeDb ((float) (double) params["volumenDb"]);
+            if (params.hasProperty ("pan")) volumen->setPan ((float) (double) params["pan"]);
+        }
+        if (params.hasProperty ("mute")) g->setMute ((bool) params["mute"]);
+        if (params.hasProperty ("solo")) g->setSolo ((bool) params["solo"]);
+    }
     else
     {
         auto* objetivo = pista (indice);
@@ -756,6 +887,137 @@ juce::var Motor::mezclaPista (int indice, const juce::var& params)
     // La mezcla cambia decenas de veces al arrastrar un fader: sin evento
     // modelo por cada pasito, que la interfaz ya sabe lo que ha pedido.
     return juce::var (true);
+}
+
+/* ================================================================ grupos */
+
+juce::var Motor::crearGrupo (const juce::var& params)
+{
+    asegurarEdit();
+
+    if (! params["pistas"].isArray() || params["pistas"].size() == 0)
+        throw std::runtime_error ("falta la lista de pistas del grupo");
+
+    // Índices ordenados y sin repetir: el grupo respeta el orden del arreglo.
+    juce::Array<int> indices;
+    for (const auto& v : *params["pistas"].getArray())
+    {
+        const int i = (int) v;
+        if (! indices.contains (i))
+            indices.add (i);
+    }
+    indices.sort();
+
+    juce::Array<te::AudioTrack*> miembros;
+    for (int i : indices)
+    {
+        auto* m = pista (i);
+        if (m == nullptr)
+            throw std::runtime_error ("no existe la pista " + std::to_string (i));
+        if (m->getParentFolderTrack() != nullptr)
+            throw std::runtime_error ("la pista " + std::to_string (i) + " ya está en un grupo");
+        miembros.add (m);
+    }
+
+    edit->getUndoManager().beginNewTransaction ("crear grupo");
+
+    // La carpeta nace de submezcla (fader + VU de serie) en el hueco del
+    // primer miembro; los miembros entran encadenando el preceding, porque
+    // moveTrack con preceding nulo aterriza en el índice crudo 1 e invierte.
+    auto carpeta = edit->insertNewFolderTrack (te::TrackInsertPoint (nullptr, miembros.getFirst()), nullptr, true);
+    if (carpeta == nullptr)
+        throw std::runtime_error ("el motor no ha podido crear el grupo");
+
+    const auto nombre = params["nombre"].toString().trim();
+    carpeta->setName (nombre.isEmpty()
+                          ? "Grupo " + juce::String (te::getTracksOfType<te::FolderTrack> (*edit, true).size())
+                          : nombre);
+
+    te::Track* previo = nullptr;
+    for (auto* m : miembros)
+    {
+        edit->moveTrack (m, te::TrackInsertPoint (carpeta.get(), previo));
+        previo = m;
+    }
+
+    emitirModelo();
+    return listarPistas();
+}
+
+juce::var Motor::meterEnGrupo (int indicePista, int indiceGrupo)
+{
+    asegurarEdit();
+
+    auto* objetivo = pista (indicePista);
+    if (objetivo == nullptr)
+        throw std::runtime_error ("no existe la pista");
+    if (objetivo->getParentFolderTrack() != nullptr)
+        throw std::runtime_error ("la pista ya está en un grupo");
+
+    auto* g = grupo (indiceGrupo);
+    if (g == nullptr)
+        throw std::runtime_error ("no existe el grupo");
+
+    edit->getUndoManager().beginNewTransaction ("meter en grupo");
+
+    auto hijas = g->getAllSubTracks (false);
+    edit->moveTrack (objetivo, te::TrackInsertPoint (g, hijas.isEmpty() ? nullptr : hijas.getLast()));
+
+    emitirModelo();
+    return listarPistas();
+}
+
+juce::var Motor::sacarDeGrupo (int indicePista)
+{
+    asegurarEdit();
+
+    auto* objetivo = pista (indicePista);
+    if (objetivo == nullptr)
+        throw std::runtime_error ("no existe la pista");
+
+    auto* carpeta = objetivo->getParentFolderTrack();
+    if (carpeta == nullptr)
+        throw std::runtime_error ("la pista no está en ningún grupo");
+
+    edit->getUndoManager().beginNewTransaction ("sacar del grupo");
+    edit->moveTrack (objetivo, te::TrackInsertPoint (nullptr, carpeta));
+
+    // Un grupo vacío no genera nodo de audio: mejor disolverlo que dejarlo
+    // de zombi. Invariante: todo grupo tiene al menos una pista.
+    if (carpeta->getAllSubTracks (false).isEmpty())
+    {
+        edit->deleteTrack (carpeta);
+        recogerRacksHuerfanos();
+    }
+
+    emitirModelo();
+    return listarPistas();
+}
+
+juce::var Motor::deshacerGrupo (int indiceGrupo)
+{
+    asegurarEdit();
+
+    auto* carpeta = grupo (indiceGrupo);
+    if (carpeta == nullptr)
+        throw std::runtime_error ("no existe el grupo");
+
+    edit->getUndoManager().beginNewTransaction ("deshacer grupo");
+
+    // Sacar a las hijas ANTES de borrar la carpeta (borrarla se las lleva);
+    // salen en orden, aterrizando donde estaba el grupo.
+    te::Track* previo = carpeta;
+    for (auto* hija : carpeta->getAllSubTracks (false))
+    {
+        edit->moveTrack (hija, te::TrackInsertPoint (nullptr, previo));
+        previo = hija;
+    }
+
+    edit->deleteTrack (carpeta);
+    recogerRacksHuerfanos();
+
+    emitirModelo();
+    return listarPistas();
 }
 
 /* ================================================================= clips */
@@ -1256,6 +1518,11 @@ te::PluginList* Motor::cadena (int indice) const
         return nullptr;
     if (indice == -1)
         return &edit->getMasterPluginList();
+    if (indice <= -2)
+    {
+        auto* g = grupo (-2 - indice);
+        return g != nullptr ? &g->pluginList : nullptr;
+    }
     auto* p = pista (indice);
     return p != nullptr ? &p->pluginList : nullptr;
 }
@@ -1340,6 +1607,7 @@ juce::var Motor::quitarPlugin (int indicePista, int indice)
 
     edit->getUndoManager().beginNewTransaction ("quitar plugin");
     usuario[indice]->deleteFromParent();
+    recogerRacksHuerfanos();
     emitirModelo();
     return listarPistas();
 }
@@ -1401,6 +1669,198 @@ juce::var Motor::activarPlugin (int indicePista, int indice, bool activo)
     usuario[indice]->setEnabled (activo);
     emitirModelo();
     return juce::var (true);
+}
+
+/* ================================================================= racks */
+
+te::RackInstance* Motor::rackEn (int indicePista, int indice) const
+{
+    auto usuario = cadenaUsuario (indicePista);
+    if (indice < 0 || indice >= usuario.size())
+        throw std::runtime_error ("no existe el plugin");
+
+    auto* rack = dynamic_cast<te::RackInstance*> (usuario[indice]);
+    if (rack == nullptr)
+        throw std::runtime_error ("ese plugin no es un rack");
+    if (rack->type == nullptr)
+        throw std::runtime_error ("el rack ha perdido su tipo");
+    return rack;
+}
+
+void Motor::recogerRacksHuerfanos()
+{
+    if (edit == nullptr)
+        return;
+
+    // Quitar una instancia (la ✕ de la tarjeta, borrar su pista, deshacer un
+    // grupo) deja el tipo huérfano en RACKS y nadie más lo limpia. Se barre
+    // sobre una copia: removeRackType muta la lista viva de getTypes().
+    juce::Array<te::RackType::Ptr> tipos;
+    for (auto* rt : edit->getRackList().getTypes())
+        tipos.add (rt);
+
+    for (auto& rt : tipos)
+        if (te::getRackInstancesInEditForType (*rt).isEmpty())
+            edit->getRackList().removeRackType (rt);
+}
+
+juce::var Motor::crearRack (int indicePista, int desde, int hasta, const juce::String& nombre)
+{
+    asegurarEdit();
+
+    auto* lista = cadena (indicePista);
+    if (lista == nullptr)
+        throw std::runtime_error (indicePista <= -2 ? "no existe el grupo" : "no existe la pista");
+
+    auto usuario = cadenaUsuario (indicePista);
+    if (usuario.isEmpty())
+        throw std::runtime_error ("no hay plugins que envolver");
+
+    if (desde < 0) desde = 0;
+    if (hasta < 0) hasta = usuario.size() - 1;
+    if (desde > hasta || hasta >= usuario.size())
+        throw std::runtime_error ("tramo de plugins imposible");
+
+    te::Plugin::Array seleccion;
+    for (int i = desde; i <= hasta; ++i)
+    {
+        auto* p = usuario[i];
+        if (dynamic_cast<te::RackInstance*> (p) != nullptr)
+            throw std::runtime_error ("un rack no entra en otro rack");
+        if (p->getSidechainSourceID().isValid())
+            throw std::runtime_error ("quita antes la entrada lateral de " + p->getName().toStdString());
+        seleccion.add (p);
+    }
+
+    // La posición cruda del primer envuelto se captura ANTES del envoltorio,
+    // porque createTypeToWrapPlugins saca los plugins de la cadena.
+    const int crudo = lista->getPlugins().indexOf (usuario[desde]);
+
+    edit->getUndoManager().beginNewTransaction ("crear rack");
+
+    auto rt = te::RackType::createTypeToWrapPlugins (seleccion, *edit);
+    if (rt == nullptr)
+        throw std::runtime_error ("el motor no ha podido crear el rack");
+
+    rt->rackName = nombre.trim().isEmpty()
+                       ? "Rack " + juce::String (edit->getRackList().size())
+                       : nombre.trim();
+
+    // Las 8 macros nacen con el rack; las asignaciones vienen después.
+    auto& macros = rt->getMacroParameterListForWriting();
+    for (int m = 1; m <= 8; ++m)
+        if (auto* mp = macros.createMacroParameter())
+            mp->macroName = "Macro " + juce::String (m);
+
+    auto instancia = lista->insertPlugin (te::RackInstance::create (*rt), crudo);
+    if (instancia == nullptr)
+        throw std::runtime_error ("el motor ha rechazado la instancia del rack");
+
+    emitirModelo();
+    return listarPistas();
+}
+
+juce::var Motor::deshacerRack (int indicePista, int indice)
+{
+    asegurarEdit();
+    auto* rack = rackEn (indicePista, indice);
+
+    edit->getUndoManager().beginNewTransaction ("deshacer rack");
+
+    // Devuelve los plugins en línea a la cadena; si era la última instancia,
+    // el propio motor borra el tipo. El barrido caza cualquier otro resto.
+    rack->replaceRackWithPluginSequence (nullptr);
+    recogerRacksHuerfanos();
+
+    emitirModelo();
+    return listarPistas();
+}
+
+juce::var Motor::macroRack (int indicePista, int indice, int macro, const juce::var& params)
+{
+    asegurarEdit();
+    auto* rack = rackEn (indicePista, indice);
+
+    auto macros = rack->type->getMacroParameters();
+    if (macro < 0 || macro >= macros.size())
+        throw std::runtime_error ("no existe esa macro");
+    auto mp = macros[macro];
+
+    if (params.hasProperty ("nombre"))
+    {
+        edit->getUndoManager().beginNewTransaction ("renombrar macro");
+        mp->macroName = params["nombre"].toString();
+    }
+
+    if (params.hasProperty ("valor"))
+        mp->setParameter (juce::jlimit (0.0f, 1.0f, (float) (double) params["valor"]), juce::sendNotificationSync);
+
+    // El valor cambia a chorro al girar el mando: el modelo solo se reemite
+    // si ha cambiado el nombre, que eso sí lo pinta todo el mundo.
+    if (params.hasProperty ("nombre"))
+    {
+        emitirModelo();
+        return listarPistas();
+    }
+    return juce::var (true);
+}
+
+juce::var Motor::asignarMacroRack (int indicePista, int indice, int macro, const juce::var& params)
+{
+    asegurarEdit();
+    auto* rack = rackEn (indicePista, indice);
+
+    auto macros = rack->type->getMacroParameters();
+    if (macro < 0 || macro >= macros.size())
+        throw std::runtime_error ("no existe esa macro");
+    auto mp = macros[macro];
+
+    const int indicePlugin = (int) params["plugin"];
+    auto contenidos = rack->type->getPlugins();
+    if (indicePlugin < 0 || indicePlugin >= contenidos.size())
+        throw std::runtime_error ("no existe ese plugin dentro del rack");
+
+    const auto idParametro = params["parametro"].toString();
+    te::AutomatableParameter* destino = nullptr;
+    for (auto p : contenidos[indicePlugin]->getAutomatableParameters())
+        if (p->paramID == idParametro)
+            { destino = p; break; }
+    if (destino == nullptr)
+        throw std::runtime_error ("no existe el parámetro: " + idParametro.toStdString());
+
+    // La asignación existente de ESTA macro, si la hay: addModifier es
+    // idempotente por fuente e ignoraría una cantidad nueva.
+    auto asignaciones = destino->getAssignments();
+    te::AutomatableParameter::ModifierAssignment* existente = nullptr;
+    for (auto* a : asignaciones)
+        if (auto* am = dynamic_cast<te::MacroParameter::Assignment*> (a))
+            if (am->macroParamID.toString() == mp->paramID)
+                { existente = a; break; }
+
+    edit->getUndoManager().beginNewTransaction ("asignar macro");
+
+    if (params.hasProperty ("quitar") && (bool) params["quitar"])
+    {
+        if (existente == nullptr)
+            throw std::runtime_error ("no había esa asignación");
+        destino->removeModifier (*existente);
+    }
+    else
+    {
+        const float cantidad = juce::jlimit (-1.0f, 1.0f,
+            params.hasProperty ("cantidad") ? (float) (double) params["cantidad"] : 1.0f);
+
+        if (existente != nullptr)
+            existente->value = cantidad;
+        else
+            destino->addModifier (*mp, cantidad, 0.0f, 0.5f);
+    }
+
+    // Que el valor asiente ya, sin esperar al siguiente bloque de audio.
+    destino->updateFromAutomationSources (edit->getTransport().getPosition());
+
+    emitirModelo();
+    return listarPistas();
 }
 
 /* ===================================== envíos, congelar, presets, curvas */
@@ -2030,6 +2490,10 @@ void Motor::refrescarMedidoresDePista()
     if (edit == nullptr)
         return;
 
+    // Los de grupo van aparte: crear una carpeta no cambia la lista de
+    // pistas y el corte temprano de abajo se los comería.
+    refrescarMedidoresDeGrupo();
+
     auto pistas = te::getAudioTracks (*edit);
 
     std::vector<te::LevelMeterPlugin*> actuales;
@@ -2052,6 +2516,36 @@ void Motor::refrescarMedidoresDePista()
         if (medidor != nullptr)
             medidor->measurer.addClient (*cliente);
         clientesPista.push_back (std::move (cliente));
+    }
+}
+
+void Motor::refrescarMedidoresDeGrupo()
+{
+    if (edit == nullptr)
+        return;
+
+    // El mismo baile que el de las pistas, sobre el VU de serie de cada
+    // carpeta de submezcla (mismo orden que grupos[] del modelo).
+    std::vector<te::LevelMeterPlugin*> actuales;
+    for (auto* carpeta : te::getTracksOfType<te::FolderTrack> (*edit, true))
+        actuales.push_back (carpeta->pluginList.findFirstPluginOfType<te::LevelMeterPlugin>());
+
+    if (actuales == medidoresGrupo)
+        return;
+
+    for (size_t i = 0; i < medidoresGrupo.size(); ++i)
+        if (medidoresGrupo[i] != nullptr)
+            medidoresGrupo[i]->measurer.removeClient (*clientesGrupo[i]);
+
+    medidoresGrupo = actuales;
+    clientesGrupo.clear();
+
+    for (auto* medidor : medidoresGrupo)
+    {
+        auto cliente = std::make_unique<te::LevelMeasurer::Client>();
+        if (medidor != nullptr)
+            medidor->measurer.addClient (*cliente);
+        clientesGrupo.push_back (std::move (cliente));
     }
 }
 
@@ -2083,6 +2577,16 @@ void Motor::timerCallback()
         porPista.add (p);
     }
     pon (datos, "pistas", porPista);
+
+    juce::Array<juce::var> porGrupo;
+    for (auto& cliente : clientesGrupo)
+    {
+        auto g = objeto();
+        pon (g, "izq", cliente->getAndClearAudioLevel (0).dB);
+        pon (g, "der", cliente->getAndClearAudioLevel (1).dB);
+        porGrupo.add (g);
+    }
+    pon (datos, "grupos", porGrupo);
 
     if (edit != nullptr)
         for (auto p : cadenaUsuario (-1))
@@ -2525,6 +3029,15 @@ int Motor::pruebaProtocolo()
         "{\"id\": 26, \"metodo\": \"dispositivos.tono\", \"params\": {\"frecuencia\": \"hola\", \"nota\": 900}}",
         "{\"id\": 27, \"metodo\": \"pista.armar\", \"params\": {\"pista\": 0, \"activo\": true, \"entrada\": -99}}",
         "{\"id\": 28, \"metodo\": \"automatizacion.puntos\", \"params\": {\"pista\": 0, \"parametro\": \"fantasma\", \"puntos\": []}}",
+        "{\"id\": 29, \"metodo\": \"grupo.crear\", \"params\": {\"pistas\": []}}",
+        "{\"id\": 30, \"metodo\": \"grupo.crear\", \"params\": {\"pistas\": [0, 0, 99]}}",
+        "{\"id\": 31, \"metodo\": \"grupo.meter\", \"params\": {\"pista\": 0, \"grupo\": 42}}",
+        "{\"id\": 32, \"metodo\": \"grupo.deshacer\", \"params\": {\"grupo\": -3}}",
+        "{\"id\": 33, \"metodo\": \"rack.crear\", \"params\": {\"pista\": 99}}",
+        "{\"id\": 34, \"metodo\": \"rack.crear\", \"params\": {\"pista\": 0, \"desde\": 5, \"hasta\": 1}}",
+        "{\"id\": 35, \"metodo\": \"rack.macro\", \"params\": {\"pista\": 0, \"indice\": 0, \"macro\": 99, \"valor\": 2}}",
+        "{\"id\": 36, \"metodo\": \"rack.asignar\", \"params\": {\"pista\": 0, \"indice\": 0, \"macro\": 0, \"plugin\": 7, \"parametro\": \"nada\"}}",
+        "{\"id\": 37, \"metodo\": \"pista.mezcla\", \"params\": {\"pista\": -42, \"volumenDb\": 0}}",
     };
 
     int fallos = 0;
@@ -2927,13 +3440,165 @@ int Motor::autoprueba()
         }
     }
 
+    // Grupos y racks, en su propio proyecto. Grupos: agrupar dos pistas,
+    // colgar una utilidad a -20 dB del bus (el render cae x0.1 exacto),
+    // sobrevivir a guardar/reabrir y volver al nivel inicial al deshacer.
+    // Racks: envolver 2 utilidades de -6 dB (render idéntico: el cableado en
+    // serie es transparente), asignar la macro 0 a la ganancia con cantidad
+    // 0.25 (la cuenta aditiva normalizada da +9 dB clavados con la macro de
+    // fábrica en 0.5), apagar la macro (vuelta a la base) y deshacer el rack.
+    const auto proyectoGrupos = carpeta.getChildFile ("autoprueba-grupos");
+    proyectoGrupos.deleteRecursively();
+    nuevoProyecto (proyectoGrupos.getFullPathName());
+    importarClip (0, wav.getFullPathName(), 0.0);
+    pausa (100);
+
+    auto picoDe = [this] (const juce::File& archivo)
+    {
+        std::unique_ptr<juce::AudioFormatReader> lector (formatos().createReaderFor (archivo));
+        if (lector == nullptr || lector->lengthInSamples == 0) return 0.0f;
+        juce::AudioBuffer<float> b ((int) lector->numChannels,
+                                    (int) juce::jmin ((juce::int64) 96000, lector->lengthInSamples));
+        lector->read (&b, 0, b.getNumSamples(), 0, true, true);
+        return b.getMagnitude (0, b.getNumSamples());
+    };
+    auto render = [this, &carpeta, &picoDe] (const char* nombre)
+    {
+        const auto archivo = carpeta.getChildFile (nombre);
+        archivo.deleteFile();
+        exportar (archivo.getFullPathName());
+        return picoDe (archivo);
+    };
+
+    const float picoGrupo0 = render ("autoprueba-grupos-0.wav");
+
+    {
+        auto peticion = objeto();
+        juce::Array<juce::var> miembros { 0, 1 };
+        pon (peticion, "pistas", juce::var (miembros));
+        pon (peticion, "nombre", "Bus");
+        crearGrupo (peticion);
+    }
+    insertarPlugin (-2, "utilidad", 0);
+    parametroPlugin (-2, 0, "ganancia", -20.0);
+    pausa (200);
+    const float picoGrupo1 = render ("autoprueba-grupos-1.wav");
+
+    bool grupoModelo;
+    {
+        const auto m = listarPistas();
+        grupoModelo = m["grupos"].size() == 1
+                   && m["grupos"][0]["pistas"].size() == 2
+                   && m["pistas"].size() == 4
+                   && (int) m["pistas"][0]["grupo"] == 0;
+    }
+
+    guardarProyecto();
+    adoptarEdit (nullptr, {});
+    abrirProyecto (proyectoGrupos.getFullPathName());
+    pausa (200);
+    bool grupoPersiste;
+    {
+        const auto m = listarPistas();
+        grupoPersiste = m["grupos"].size() == 1
+                     && m["grupos"][0]["pistas"].size() == 2
+                     && m["grupos"][0]["plugins"].size() == 1;
+    }
+
+    deshacerGrupo (0);
+    pausa (200);
+    const float picoGrupo2 = render ("autoprueba-grupos-2.wav");
+    bool grupoSuelto;
+    {
+        const auto m = listarPistas();
+        grupoSuelto = m["grupos"].size() == 0 && m["pistas"].size() == 4;
+    }
+
+    const bool agrupa = grupoModelo && grupoSuelto
+                     && picoGrupo0 > 0.3f
+                     && std::abs (picoGrupo1 - picoGrupo0 * 0.1f) < 0.005f
+                     && std::abs (picoGrupo2 - picoGrupo0) < 0.005f;
+
+    insertarPlugin (0, "utilidad", -1);
+    insertarPlugin (0, "utilidad", -1);
+    parametroPlugin (0, 0, "ganancia", -6.0);
+    parametroPlugin (0, 1, "ganancia", -6.0);
+    pausa (200);
+    const float picoRack0 = render ("autoprueba-racks-0.wav");
+
+    crearRack (0, -1, -1, {});
+    pausa (200);
+    const float picoRack1 = render ("autoprueba-racks-1.wav");
+    bool rackModelo;
+    {
+        const auto m = listarPistas();
+        const auto pl = m["pistas"][0]["plugins"];
+        rackModelo = pl.size() == 1
+                  && pl[0]["tipo"].toString() == "rack"
+                  && pl[0]["macros"].size() == 8
+                  && pl[0]["cadena"].size() == 2;
+    }
+
+    {
+        auto peticion = objeto();
+        pon (peticion, "plugin", 0);
+        pon (peticion, "parametro", "ganancia");
+        pon (peticion, "cantidad", 0.25);
+        asignarMacroRack (0, 0, 0, peticion);
+    }
+    pausa (200);
+    const float picoRack2 = render ("autoprueba-racks-2.wav");
+
+    {
+        auto peticion = objeto();
+        pon (peticion, "valor", 0.0);
+        macroRack (0, 0, 0, peticion);
+    }
+    pausa (200);
+    const float picoRack3 = render ("autoprueba-racks-3.wav");
+
+    guardarProyecto();
+    adoptarEdit (nullptr, {});
+    abrirProyecto (proyectoGrupos.getFullPathName());
+    pausa (200);
+    bool rackPersiste;
+    {
+        const auto m = listarPistas();
+        const auto pl = m["pistas"][0]["plugins"];
+        rackPersiste = pl.size() == 1
+                    && pl[0]["tipo"].toString() == "rack"
+                    && pl[0]["macros"].size() == 8
+                    && pl[0]["macros"][0]["asignaciones"].size() == 1
+                    && pl[0]["macros"][0]["asignaciones"][0]["parametro"].toString() == "ganancia"
+                    && std::abs ((double) pl[0]["macros"][0]["valor"]) < 0.001;
+    }
+
+    deshacerRack (0, 0);
+    pausa (200);
+    const float picoRack4 = render ("autoprueba-racks-4.wav");
+    bool rackEnLinea;
+    {
+        const auto m = listarPistas();
+        const auto pl = m["pistas"][0]["plugins"];
+        rackEnLinea = pl.size() == 2
+                   && pl[0]["tipo"].toString() == "utilidad"
+                   && pl[1]["tipo"].toString() == "utilidad";
+    }
+
+    const bool enracka = rackModelo && picoRack0 > 0.05f
+                      && std::abs (picoRack1 - picoRack0) < 0.005f;
+    const bool macroMueve = std::abs (picoRack2 - picoRack0 * 2.8184f) < 0.02f
+                         && std::abs (picoRack3 - picoRack0) < 0.005f;
+    const bool rackDeshecho = rackEnLinea && std::abs (picoRack4 - picoRack0) < 0.005f;
+
     const bool graba = duracionGrabada > 0.4 && picoGrabado > 0.15f;
     const bool midiSuena = notasReabiertas == 3 && pluginsPistaMidi == 1 && picoMidi > 0.03f;
     const bool midiGraba = notasTrasGrabar > notasReabiertas;
     const bool sesion = estadoRanura == "tocando";
     const bool previa = picoPrevia > 0.03f;
     const bool ok = avanza && suena && deshace && renderiza && persiste && automatiza && normaliza && warpea
-                 && graba && midiSuena && midiGraba && sesion && previa && vst;
+                 && graba && midiSuena && midiGraba && sesion && previa && vst
+                 && agrupa && grupoPersiste && enracka && macroMueve && rackPersiste && rackDeshecho;
 
     auto r = objeto();
     pon (r, "ok", ok);
@@ -2958,6 +3623,14 @@ int Motor::autoprueba()
     pon (r, "ranuraLanzada", estadoRanura);
     pon (r, "picoPrevia", picoPrevia);
     pon (r, "vst", vstDetalle);
+    pon (r, "agrupa", agrupa);
+    pon (r, "grupoPersiste", grupoPersiste);
+    pon (r, "picoGrupo", juce::String (picoGrupo0, 3) + " -> " + juce::String (picoGrupo1, 3) + " -> " + juce::String (picoGrupo2, 3));
+    pon (r, "enracka", enracka);
+    pon (r, "macroMueve", macroMueve);
+    pon (r, "rackPersiste", rackPersiste);
+    pon (r, "rackDeshecho", rackDeshecho);
+    pon (r, "picoRack", juce::String (picoRack0, 3) + " -> " + juce::String (picoRack1, 3) + " -> " + juce::String (picoRack2, 3) + " -> " + juce::String (picoRack3, 3) + " -> " + juce::String (picoRack4, 3));
     emitir (protocolo::evento ("prueba", r));
 
     return ok ? 0 : 1;

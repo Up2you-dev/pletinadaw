@@ -7,10 +7,13 @@ const modeloDeMotor = () => ({
   metronomo: true,
   bucle: { activo: true, inicio: 1, fin: 5 },
   pistas: [
-    { indice: 0, nombre: 'Voz', mute: false, solo: false, volumenDb: -3, pan: 0, plugins: [], clips: [
+    { indice: 0, nombre: 'Voz', mute: false, solo: false, volumenDb: -3, pan: 0, grupo: 0, plugins: [], clips: [
       { id: 'c1', nombre: 'toma', inicio: 0, duracion: 2, desfase: 0, ruta: '/tmp/a.wav' },
     ] },
-    { indice: 1, nombre: 'Bajo', mute: true, solo: false, volumenDb: 0, pan: -0.5, plugins: [], clips: [] },
+    { indice: 1, nombre: 'Bajo', mute: true, solo: false, volumenDb: 0, pan: -0.5, grupo: -1, plugins: [], clips: [] },
+  ],
+  grupos: [
+    { indice: 0, nombre: 'Bus', mute: false, solo: false, volumenDb: -2, pan: 0, pistas: [0], plugins: [] },
   ],
   master: { volumenDb: 0, pan: 0, plugins: [{ indice: 0, tipo: 'medidor', nombre: 'Medidor', activo: true, parametros: [] }] },
 });
@@ -48,6 +51,26 @@ describe('la réplica del modelo del motor', () => {
     menos.pistas = [menos.pistas[0]];
     aplicarModelo(menos);
     expect(estado.pistaSeleccionada).toBeLessThanOrEqual(0);
+  });
+
+  it('replica los grupos y el campo grupo de cada pista', () => {
+    aplicarModelo(modeloDeMotor());
+    expect(estado.grupos).toHaveLength(1);
+    expect(estado.grupos[0].nombre).toBe('Bus');
+    expect(estado.grupos[0].pistas).toEqual([0]);
+    expect(estado.pistas[0].grupo).toBe(0);
+    expect(estado.pistas[1].grupo).toBe(-1);
+  });
+
+  it('un grupo seleccionado (<= -2) sobrevive mientras exista y cae al máster si no', () => {
+    aplicarModelo(modeloDeMotor());
+    cambiar({ pistaSeleccionada: -2 });
+    aplicarModelo(modeloDeMotor());
+    expect(estado.pistaSeleccionada).toBe(-2);
+    const sinGrupos = modeloDeMotor();
+    sinGrupos.grupos = [];
+    aplicarModelo(sinGrupos);
+    expect(estado.pistaSeleccionada).toBe(-1);
   });
 });
 

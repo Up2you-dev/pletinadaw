@@ -20,7 +20,7 @@ export const estado = {
   // cursor interpole fino entre eventos (llegan a ~15 Hz).
   segundos: 0,
   refrescadoEn: 0,
-  medidores: { izq: -100, der: -100, pistas: [], lufs: null, espectro: null },
+  medidores: { izq: -100, der: -100, pistas: [], grupos: [], lufs: null, espectro: null },
   automatizando: false,
 
   motor: { estado: 'maqueta', info: null, binario: null },
@@ -34,6 +34,7 @@ export const estado = {
   pianoRoll: null,                // id del clip MIDI abierto en el piano roll
 
   pistas: [],
+  grupos: [],                     // carpetas de submezcla: {indice, nombre, mezcla, pistas[], plugins[]}
   master: { volumenDb: 0, pan: 0, plugins: [] },
   vst: [],                        // catálogo VST3 escaneado por el motor
 
@@ -84,10 +85,19 @@ export function aplicarModelo(modelo) {
   });
 
   const seleccion = new Set([...estado.seleccion].filter((id) => vivos.has(id)));
+  const grupos = modelo.grupos || [];
+
+  // La selección sobrevive si su objetivo sigue vivo: un índice de pista se
+  // recorta a las que quedan, y un grupo (<= -2) cae al máster si desapareció.
+  const sel = estado.pistaSeleccionada;
+  const pistaSeleccionada = sel <= -2
+    ? (-2 - sel < grupos.length ? sel : -1)
+    : Math.min(sel, pistas.length - 1);
 
   cambiar({
     pistas,
     seleccion,
+    grupos,
     master: modelo.master || estado.master,
     bpm: modelo.bpm ?? estado.bpm,
     metronomo: !!modelo.metronomo,
@@ -95,7 +105,7 @@ export function aplicarModelo(modelo) {
     proyecto: modelo.proyecto || estado.proyecto,
     escenas: modelo.escenas ?? estado.escenas,
     cuantizacionLanzamiento: modelo.cuantizacionLanzamiento || estado.cuantizacionLanzamiento,
-    pistaSeleccionada: Math.min(estado.pistaSeleccionada, pistas.length - 1),
+    pistaSeleccionada,
   });
 }
 

@@ -18,10 +18,15 @@ export function montarTira(inyectadas) {
   pintarTira();
 }
 
-const objetivo = () => (estado.pistaSeleccionada === -1
-  ? { nombre: 'máster', plugins: estado.master.plugins || [] }
-  : { nombre: estado.pistas[estado.pistaSeleccionada]?.nombre || '…',
-      plugins: estado.pistas[estado.pistaSeleccionada]?.plugins || [] });
+const objetivo = () => {
+  const sel = estado.pistaSeleccionada;
+  if (sel === -1) return { nombre: 'máster', plugins: estado.master.plugins || [] };
+  if (sel <= -2) {
+    const g = (estado.grupos || [])[-2 - sel];
+    return { nombre: `⌸ ${g?.nombre || '…'}`, plugins: g?.plugins || [] };
+  }
+  return { nombre: estado.pistas[sel]?.nombre || '…', plugins: estado.pistas[sel]?.plugins || [] };
+};
 
 /** El clip seleccionado, si es exactamente uno: el inspector es suyo. */
 const clipSolo = () => {
@@ -72,12 +77,46 @@ export function pintarTira() {
     </div>
   `;
 
+  // La tarjeta del rack: 8 macros con su desplegable de asignación y chips
+  // de lo ya asignado, más la subcadena envuelta en solo lectura (dentro se
+  // toca con las macros; ⇱ devuelve los dispositivos a la cadena).
+  const mandosRack = (plugin) => `
+      <div class="macros">${(plugin.macros || []).map((m) => `
+        <div class="macro">
+          <span class="nombre-macro" data-macro="${m.indice}" title="Doble clic: renombrar la macro">${esc(m.nombre)}</span>
+          <input type="range" data-macro="${m.indice}" min="0" max="1" step="0.005" value="${m.valor}"
+                 title="${esc(m.nombre)}: ${Number(m.valor).toFixed(2)}${(m.asignaciones || []).length ? '' : ' (sin asignar)'}">
+          <select class="asignar" data-macro="${m.indice}" title="Asignar la macro a un parámetro de dentro">
+            <option value="">＋</option>
+            ${(plugin.cadena || []).map((c, ci) => (c.parametros || []).map((p) =>
+              `<option value="${ci}:${esc(p.id)}">${esc(c.nombre)} · ${esc(p.nombre)}</option>`).join('')).join('')}
+          </select>
+          ${(m.asignaciones || []).map((a) => {
+            const c = (plugin.cadena || [])[a.plugin];
+            return `<button class="quita-asignacion" data-macro="${m.indice}" data-plugin="${a.plugin}" data-parametro="${esc(a.parametro)}"
+              title="Quitar la asignación (cantidad ${Number(a.cantidad).toFixed(2)})">${esc(c?.nombre || '?')}·${esc(a.parametro)} ✕</button>`;
+          }).join('')}
+        </div>`).join('')}
+      </div>
+      <div class="rack-cadena">${(plugin.cadena || []).map((c) => `
+        <div class="contenido${c.activo ? '' : ' apagado'}">
+          <span class="nombre-contenido">${esc(c.nombre)}</span>
+          ${(c.parametros || []).map((p) => `
+            <label class="mando mini" title="${esc(p.nombre)}: ${Number(p.valor).toFixed(2)} (se mueve con las macros)">
+              <span>${esc(p.nombre)}</span>
+              <input type="range" min="${p.min}" max="${p.max}" step="${(p.max - p.min) / 200}" value="${p.valor}" disabled>
+            </label>`).join('')}
+        </div>`).join('')}
+      </div>`;
+
   const tarjetas = plugins.map((plugin) => {
     const mandos = plugin.tipo === 'medidor'
       ? `<div class="medidor-lienzos">
            <canvas class="espectro" width="170" height="52" title="Espectro del máster"></canvas>
            <canvas class="vectorscopio" width="52" height="52" title="Vectorscopio (M/S): vertical = mono, horizontal = fuera de fase"></canvas>
          </div>`
+      : plugin.tipo === 'rack'
+      ? mandosRack(plugin)
       : (plugin.parametros || []).map((p) => `
       <label class="mando" title="${esc(p.nombre)}: ${Number(p.valor).toFixed(2)}">
         <span>${esc(p.nombre)}</span>
@@ -93,12 +132,16 @@ export function pintarTira() {
             `<option value="${p.indice}"${plugin.lateral === p.indice ? ' selected' : ''}>◁ ${esc(p.nombre)}</option>`).join('')}
         </select>` : '';
 
+    const desrack = plugin.tipo === 'rack'
+      ? '<button class="desrack" title="Deshacer el rack: los dispositivos vuelven en línea">⇱</button>' : '';
+
     return `
-      <div class="dispositivo${plugin.activo ? ' activo' : ' apagado'}" data-indice="${plugin.indice}" data-tipo="${esc(plugin.tipo)}">
+      <div class="dispositivo${plugin.activo ? ' activo' : ' apagado'}${plugin.tipo === 'rack' ? ' rack' : ''}" data-indice="${plugin.indice}" data-tipo="${esc(plugin.tipo)}">
         <div class="cabeza">
           <button class="led" title="${plugin.activo ? 'Apagar' : 'Encender'}"></button>
           <span class="nombre">${esc(plugin.nombre)}</span>
           ${lateral}
+          ${desrack}
           <button class="presets" title="Presets">▾</button>
           <button class="cerrar" title="Quitar">${ICO.x}</button>
         </div>
@@ -114,8 +157,11 @@ export function pintarTira() {
     + (vst ? `<div class="raya"></div>${vst}` : '')
     + '<button class="escanear-vst">Buscar VST3…</button>';
 
+  const puedeEnrackar = plugins.length > 0 && plugins.every((p) => p.tipo !== 'rack');
+
   host.innerHTML = `
     <span class="titulo">${esc(nombre)}</span>
+    ${puedeEnrackar ? '<button class="crear-rack" title="Envolver la cadena en un rack con 8 macros">☰ Rack</button>' : ''}
     ${inspector}
     ${tarjetas}
     <div class="insertar">
@@ -123,6 +169,8 @@ export function pintarTira() {
       <div class="menu" hidden>${menu}</div>
     </div>
   `;
+
+  $('.tira .crear-rack')?.addEventListener('click', () => acciones.alCrearRack(indicePista));
 
   if (clip !== null && clip.tipo === 'midi') {
     $('.tira .inspector-clip .abrir-notas')?.addEventListener('click', () => {
@@ -196,6 +244,53 @@ export function pintarTira() {
     tarjeta.querySelector('.lateral')?.addEventListener('change', (evento) => {
       acciones.alLateral(indicePista, indice, Number(evento.target.value));
     });
+
+    tarjeta.querySelector('.desrack')?.addEventListener('click', () => {
+      acciones.alDeshacerRack(indicePista, indice);
+    });
+
+    for (const mando of tarjeta.querySelectorAll('input[data-macro]')) {
+      mando.addEventListener('input', () => {
+        mando.title = `${Number(mando.value).toFixed(2)}`;
+        acciones.alMacro(indicePista, indice, Number(mando.dataset.macro), Number(mando.value));
+      });
+    }
+
+    for (const sel of tarjeta.querySelectorAll('select.asignar')) {
+      sel.addEventListener('change', () => {
+        const eleccion = sel.value;
+        sel.value = '';
+        if (!eleccion) return;
+        const corte = eleccion.indexOf(':');
+        acciones.alAsignarMacro(indicePista, indice, Number(sel.dataset.macro),
+          Number(eleccion.slice(0, corte)), eleccion.slice(corte + 1));
+      });
+    }
+
+    for (const chip of tarjeta.querySelectorAll('.quita-asignacion')) {
+      chip.addEventListener('click', () => {
+        acciones.alAsignarMacro(indicePista, indice, Number(chip.dataset.macro),
+          Number(chip.dataset.plugin), chip.dataset.parametro, true);
+      });
+    }
+
+    for (const nom of tarjeta.querySelectorAll('.nombre-macro')) {
+      nom.addEventListener('dblclick', () => {
+        const macro = Number(nom.dataset.macro);
+        const entrada = document.createElement('input');
+        entrada.value = nom.textContent;
+        entrada.className = 'renombra-macro';
+        nom.replaceWith(entrada);
+        entrada.focus();
+        entrada.select();
+        entrada.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' && entrada.value.trim())
+            acciones.alNombrarMacro(indicePista, indice, macro, entrada.value.trim());
+          else if (e.key === 'Escape') pintarTira();
+          e.stopPropagation();
+        });
+      });
+    }
 
     for (const mando of tarjeta.querySelectorAll('input[data-parametro]')) {
       mando.addEventListener('input', () => {

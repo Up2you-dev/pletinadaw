@@ -371,6 +371,22 @@ montarMesa({
     if (!conectado()) return soloConMotor();
     orden('pista.armar', { pista: fila, activo }).catch((e) => aviso(e.message));
   },
+  alCrearGrupo: (pistas) => {
+    if (!conectado()) return soloConMotor();
+    orden('grupo.crear', { pistas }).catch((e) => aviso(e.message));
+  },
+  alMeterEnGrupo: (pista, grupo) => {
+    if (!conectado()) return soloConMotor();
+    orden('grupo.meter', { pista, grupo }).catch((e) => aviso(e.message));
+  },
+  alSacarDeGrupo: (pista) => {
+    if (!conectado()) return soloConMotor();
+    orden('grupo.sacar', { pista }).catch((e) => aviso(e.message));
+  },
+  alDeshacerGrupo: (grupo) => {
+    if (!conectado()) return soloConMotor();
+    orden('grupo.deshacer', { grupo }).catch((e) => aviso(e.message));
+  },
 });
 montarTira({
   alInsertarPlugin: (pista, tipo) => {
@@ -423,6 +439,27 @@ montarTira({
     } catch (error) {
       aviso(error.message);
     }
+  },
+  alCrearRack: (pista) => {
+    if (!conectado()) return soloConMotor();
+    orden('rack.crear', { pista }).catch((e) => aviso(e.message));
+  },
+  alDeshacerRack: (pista, indice) => {
+    if (!conectado()) return soloConMotor();
+    orden('rack.deshacer', { pista, indice }).catch((e) => aviso(e.message));
+  },
+  alMacro: (pista, indice, macro, valor) => {
+    if (conectado()) orden('rack.macro', { pista, indice, macro, valor }).catch(() => {});
+  },
+  alNombrarMacro: (pista, indice, macro, nombre) => {
+    if (!conectado()) return soloConMotor();
+    orden('rack.macro', { pista, indice, macro, nombre }).catch((e) => aviso(e.message));
+  },
+  alAsignarMacro: (pista, indice, macro, plugin, parametro, quitar) => {
+    if (!conectado()) return soloConMotor();
+    const params = { pista, indice, macro, plugin, parametro };
+    if (quitar) params.quitar = true;
+    orden('rack.asignar', params).catch((e) => aviso(e.message));
   },
 });
 montarSesion({
@@ -547,6 +584,7 @@ if (puente) {
           izq: datos.izq ?? -100,
           der: datos.der ?? -100,
           pistas: datos.pistas || [],
+          grupos: datos.grupos || [],
           lufs: datos.lufs || null,
           espectro: datos.espectro || null,
           xy: datos.xy || null,
@@ -577,7 +615,7 @@ suscribir((_estado, cambios) => {
   if ('proyecto' in cambios && estado.proyecto.ruta) ultimoProyecto.guardar(estado.proyecto.ruta);
   if ('reproduciendo' in cambios || 'metronomo' in cambios || 'grabando' in cambios) pintarBoton();
   if ('proyecto' in cambios || 'bpm' in cambios || 'exportando' in cambios) pintarProyecto();
-  if ('pistas' in cambios || 'master' in cambios || 'pistaSeleccionada' in cambios) {
+  if ('pistas' in cambios || 'grupos' in cambios || 'master' in cambios || 'pistaSeleccionada' in cambios) {
     pintarMesa();
     pintarTira();
   } else if ('seleccion' in cambios || 'vst' in cambios) {

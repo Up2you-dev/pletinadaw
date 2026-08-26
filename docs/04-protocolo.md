@@ -23,7 +23,7 @@ Códigos de error al estilo JSON-RPC: `-32700` JSON ilegible, `-32601` método
 desconocido, `-32000` fallo de la operación (el mensaje viene en castellano y
 se puede enseñar tal cual).
 
-## Métodos (estado F5)
+## Métodos (estado F5 con grupos y racks)
 
 | Zona | Métodos | Notas |
 |---|---|---|
@@ -31,25 +31,27 @@ se puede enseñar tal cual).
 | proyecto | `proyecto.nuevo {carpeta}`, `proyecto.abrir {ruta}`, `proyecto.guardar` | el proyecto es una carpeta con `proyecto.tracktionedit` y `media/` |
 | modelo | `pistas.listar` | la foto completa (ver evento `modelo`) |
 | pistas | `pista.crear`, `pista.borrar`, `pista.renombrar`, `pista.mezcla {volumenDb, pan, mute, solo}`, `pista.envio {pista, bus, nivelDb}`, `pista.congelar {pista, activo}`, `pista.armar {pista, activo, entrada?, midi?}` | `pista.mezcla` no emite `modelo`: los faders disparan decenas por segundo. `pista.envio` crea el retorno del bus si no existe. `pista.armar` asigna la entrada (de audio o MIDI) y enciende el armado |
+| grupos | `grupo.crear {pistas[], nombre?}`, `grupo.meter {pista, grupo}`, `grupo.sacar {pista}`, `grupo.deshacer {grupo}` | carpetas de submezcla: los hijos suman en el bus y pasan por su cadena. **Regla de direccionamiento**: donde se acepta un índice de pista, `-1` es el máster y `<= -2` es el grupo `-2 - pista` — con eso `pista.mezcla`, `pista.renombrar`, todos los `plugin.*` y los presets valen también para grupos (side-chain en el bus incluido). Sin anidar (v1); `grupo.sacar` disuelve la carpeta si queda vacía; `pista.borrar/congelar/armar/envio` y los clips siguen siendo solo de pistas |
 | clips | `clip.importar {pista, ruta, inicio}`, `clip.mover {id, inicio, pista?}`, `clip.recortar {id, inicio, fin}`, `clip.dividir {id, segundos}`, `clip.duplicar {id}`, `clip.fundidos {id, entrada, salida}`, `clip.borrar {id}`, `clip.picos {id, porSegundo}`, `clip.warp {id, autoTempo?, bpmFuente?, transposicion?, modo?}` | importar copia el audio a `media/` y detecta el tempo de origen (SoundTouch, primer minuto); `clip.warp` enciende el autoTempo (el clip sigue el tempo del proyecto), corrige el BPM de origen, transpone en semitonos y elige el modo de stretch (`normal`/`mejor`) |
 | MIDI | `clip.midi.crear {pista, inicio, compases}`, `clip.midi.notas {id, notas[{nota, inicio, duracion, velocidad}]}`, `clip.midi.cuantizar {id, division}` | el respaldo del piano roll: las notas van en pulsos (beats) y se sustituyen en bloque (una transacción, un deshacer); la cuantización es no destructiva y usa las divisiones de T.E. ("1/4 beat"…) |
 | VST3 | `vst.carpetas {rutas?}`, `vst.escanear`, `vst.lista` | el escaneo abre cada candidato en un proceso hijo (`--escanear-vst3`); el que revienta queda vetado; el catálogo persiste; se insertan con `plugin.insertar {tipo: "vst:<id>"}` |
 | previa | `previa.tocar {ruta}`, `previa.parar` | la audición del navegador: el archivo suena en un edit aparte, sin rozar el proyecto ni su deshacer |
 | sesión | `sesion.escenas {numero}`, `sesion.poner {pista, escena, desdeClip}`, `sesion.lanzar {pista?, escena}`, `sesion.parar {pista?}`, `sesion.cuantizacion {nombre}` | la Session View: lanzar sin `pista` dispara la escena entera; la cuantización usa los nombres de T.E. ("None", "1 Bar", "1/4"…); los estados vivos van con los `medidores` |
-| suite | `plugin.insertar {pista, tipo, indice}`, `plugin.quitar`, `plugin.parametro {parametro, valor}`, `plugin.activar`, `plugin.lateral {pista, indice, fuente}`, `plugin.presets {tipo}`, `plugin.preset.guardar {pista, indice, nombre}`, `plugin.preset.cargar {pista, indice, nombre}` | `pista = -1` es el máster; los tipos válidos vienen en `hola.suite` (efectos e instrumentos); `plugin.lateral` cablea la entrada lateral (side-chain) de Puerta/Compresor/Techo a otra pista (`fuente = -1` la quita); presets de fábrica y de usuario |
+| suite | `plugin.insertar {pista, tipo, indice}`, `plugin.quitar`, `plugin.parametro {parametro, valor}`, `plugin.activar`, `plugin.lateral {pista, indice, fuente}`, `plugin.presets {tipo}`, `plugin.preset.guardar {pista, indice, nombre}`, `plugin.preset.cargar {pista, indice, nombre}` | `pista = -1` es el máster (y `<= -2`, un grupo); los tipos válidos vienen en `hola.suite` (efectos e instrumentos); `plugin.lateral` cablea la entrada lateral (side-chain) de Puerta/Compresor/Techo a otra pista (`fuente = -1` la quita); presets de fábrica y de usuario |
+| racks | `rack.crear {pista, desde?, hasta?, nombre?}`, `rack.deshacer {pista, indice}`, `rack.macro {pista, indice, macro, valor?, nombre?}`, `rack.asignar {pista, indice, macro, plugin, parametro, cantidad?, quitar?}` | `rack.crear` envuelve un tramo de la cadena (por defecto entera) en un rack con **8 macros**; el cableado en serie es transparente. Las macros van de 0 a 1 y su efecto es **aditivo** sobre el valor base del parámetro asignado (en espacio normalizado, con recorte); `rack.macro {valor}` no emite `modelo` (regla de los faders), `{nombre}` sí. Dentro del rack los parámetros se mueven solo vía macros (v1); `rack.deshacer` devuelve los dispositivos en línea sin perder su estado. Sin racks dentro de racks; no se envuelven plugins con lateral activo |
 | automatización | `automatizacion.puntos {pista, parametro, puntos[{t, v}]}` | `volumen`, `pan` o cualquier parámetro de la suite; volumen en dB |
 | transporte | `transporte.tocar/grabar/parar/irA/estado/tempo/metronomo/bucle` | `grabar {cuenta?}` graba en las pistas armadas (con claqueta de un compás si `cuenta`); `parar` remata la toma; cambiar el tempo remapea posiciones a compás y estira los clips con autoTempo |
 | deshacer | `deshacer.deshacer`, `deshacer.rehacer` | cada orden mutadora es una transacción |
-| render | `render.exportar {ruta, stems?, lufsObjetivo?}` | WAV o FLAC por extensión; `stems` exporta pista a pista; `lufsObjetivo` normaliza en dos pasadas y se verifica midiendo el archivo |
+| render | `render.exportar {ruta, stems?, lufsObjetivo?}` | WAV o FLAC por extensión; `stems` exporta pista a pista (crudas: la cadena del grupo no se imprime en los stems); `lufsObjetivo` normaliza en dos pasadas y se verifica midiendo el archivo |
 | fin | `salir` | |
 
-## Eventos (estado F5)
+## Eventos (estado F5 con grupos y racks)
 
 | Evento | Cuándo | Datos |
 |---|---|---|
 | `arrancado` | al nacer el proceso | `version`, `audio` |
-| `modelo` | tras cada orden que muta el proyecto | la foto completa: `proyecto`, `bpm`, `metronomo`, `bucle`, `pistas[]` (con `clips[]` —`tipo` audio/midi; los de audio con posición, fundidos, `autoTempo`, `transposicion` y `bpmFuente`; los MIDI con `notas[]` y `cuantizacion`—, `plugins[]` con sus `parametros[]` descriptores, `envios[]`, `retorno`, `congelada`, `armada` y `automatizacionVolumen[]`), `master` |
-| `medidores` | ~15 Hz mientras reproduce (y una última al parar) | `segundos`, `reproduciendo`, `grabando`, `izq`, `der` (dBFS), `pistas[]` (VU por pista), `sesion[][]` (estados de las ranuras, si hay escenas) y, si hay Medidor en el máster, `lufs {m, s, i, lra, correlacion, pico, picoVerdadero}` y `espectro[24]` |
+| `modelo` | tras cada orden que muta el proyecto | la foto completa: `proyecto`, `bpm`, `metronomo`, `bucle`, `pistas[]` (con `clips[]` —`tipo` audio/midi; los de audio con posición, fundidos, `autoTempo`, `transposicion` y `bpmFuente`; los MIDI con `notas[]` y `cuantizacion`—, `plugins[]` con sus `parametros[]` descriptores, `grupo` —índice del grupo o -1—, `envios[]`, `retorno`, `congelada`, `armada` y `automatizacionVolumen[]`), `grupos[]` (`nombre`, mezcla, `pistas[]` miembros y `plugins[]` de su cadena) y `master`. Un plugin de `tipo` `rack` trae además `macros[]` (`nombre`, `valor`, `asignaciones[{plugin, parametro, cantidad}]`) y `cadena[]` (la subcadena envuelta, descrita igual que una cadena normal) |
+| `medidores` | ~15 Hz mientras reproduce (y una última al parar) | `segundos`, `reproduciendo`, `grabando`, `izq`, `der` (dBFS), `pistas[]` (VU por pista), `grupos[]` (VU por grupo), `sesion[][]` (estados de las ranuras, si hay escenas) y, si hay Medidor en el máster, `lufs {m, s, i, lra, correlacion, pico, picoVerdadero}` y `espectro[24]` |
 | `render.terminado` | al acabar una exportación | `ruta`, `ok` |
 | `prueba` | solo con `--prueba` | los veredictos de la autoprueba |
 

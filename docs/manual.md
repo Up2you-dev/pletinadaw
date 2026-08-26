@@ -47,6 +47,18 @@ atajos vive dentro de la aplicación, en la tecla `?`.
 - **Side-chain**: la Puerta, el Compresor y el Techo tienen el selector ◁ en
   su tarjeta: elige la pista que dispara el detector (el bombo que abre el
   bajo, o que agacha el colchón).
+- **Grupos**: pulsa **⌸** en un canal para marcarlo y ⌸ en otro para
+  agruparlos: aparece la tira del bus (fader, pan, M/S, VU y ✕ para
+  deshacerlo) y su **cadena propia** en la tira al seleccionarla — un
+  compresor con ◁ en el bus del ritmo es el «glue» clásico. ⌸ en una pista
+  agrupada la saca; con una pista marcada, toca la tira de un grupo para
+  meterla dentro.
+- **Racks**: el botón **☰ Rack** de la tira envuelve la cadena a la vista en
+  un rack con **8 macros**: asigna cada macro a parámetros de dentro con su
+  desplegable ＋ (el efecto se suma al valor del parámetro), renómbrala con
+  doble clic y quita asignaciones desde sus chips. Dentro del rack los
+  mandos se mueven con las macros; **⇱** deshace el rack y devuelve los
+  dispositivos en línea con su estado intacto.
 - **Congelar**: el botón ❄ del canal (experimental).
 
 ## Grabar

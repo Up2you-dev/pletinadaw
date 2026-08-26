@@ -10,6 +10,7 @@ import { estado } from '../estado.js';
 
 let acciones = null;
 const caida = new Map(); // clave → dB suavizado del VU
+let origenGrupo = null;  // gesto de agrupar en dos clics: la pista marcada
 
 export function montarMesa(inyectadas) {
   acciones = inyectadas;
@@ -28,7 +29,7 @@ export function pintarMesa() {
       </div>`;
 
   const canal = (pista, i) => `
-    <div class="canal${i === estado.pistaSeleccionada ? ' elegido' : ''}${pista.retorno ? ' retorno' : ''}" data-pista="${i}">
+    <div class="canal${i === estado.pistaSeleccionada ? ' elegido' : ''}${pista.retorno ? ' retorno' : ''}${pista.grupo >= 0 ? ' agrupado' : ''}${i === origenGrupo ? ' origen' : ''}" data-pista="${i}">
       <div class="cinta-color" style="background:${esc(pista.color)}"></div>
       <div class="cuerpo-fader">
         <input class="fader" type="range" min="-60" max="6" value="${pista.volumenDb ?? 0}" step="0.1"
@@ -43,12 +44,48 @@ export function pintarMesa() {
         <button class="s" aria-pressed="${pista.solo ? 'true' : 'false'}" title="Solo">S</button>
         <button class="c" aria-pressed="${pista.congelada ? 'true' : 'false'}" title="Congelar pista">❄</button>
         <button class="r" aria-pressed="${pista.armada ? 'true' : 'false'}" title="Armar para grabar">●</button>
+        <button class="g" aria-pressed="${pista.grupo >= 0 ? 'true' : i === origenGrupo ? 'true' : 'false'}"
+                title="${pista.grupo >= 0 ? 'Sacar del grupo' : 'Agrupar: marca esta pista y pulsa ⌸ en la otra'}">⌸</button>
       </div>
       <div class="nombre">${esc(pista.nombre)}</div>
     </div>
   `;
 
-  host.innerHTML = `${estado.pistas.map(canal).join('')}
+  // La tira de un grupo aparece delante de su primer miembro: fader, pan,
+  // M/S y VU del bus, y la ✕ que lo disuelve. Con una pista marcada para
+  // agrupar, un toque en la tira del grupo la mete dentro.
+  const tiraGrupo = (g) => `
+    <div class="canal grupo${estado.pistaSeleccionada === -2 - g.indice ? ' elegido' : ''}" data-pista="${-2 - g.indice}" data-grupo="${g.indice}">
+      <div class="cinta-color"></div>
+      <div class="cuerpo-fader">
+        <input class="fader" type="range" min="-60" max="6" value="${g.volumenDb ?? 0}" step="0.1"
+               title="${esc(g.nombre)}: ${(g.volumenDb ?? 0).toFixed(1)} dB">
+        <div class="vu" data-vu="g${g.indice}"><i style="height:0%"></i></div>
+      </div>
+      <input class="pan" type="range" min="-1" max="1" value="${g.pan ?? 0}" step="0.05" title="Pan">
+      <div class="envios ret">grupo</div>
+      <div class="db">${(g.volumenDb ?? 0) <= -60 ? '−inf' : (g.volumenDb ?? 0).toFixed(1)}</div>
+      <div class="botones">
+        <button class="m" aria-pressed="${g.mute ? 'true' : 'false'}" title="Silenciar el grupo">M</button>
+        <button class="s" aria-pressed="${g.solo ? 'true' : 'false'}" title="Solo del grupo">S</button>
+        <button class="x" title="Deshacer el grupo (las pistas quedan sueltas)">✕</button>
+      </div>
+      <div class="nombre">⌸ ${esc(g.nombre)}</div>
+    </div>
+  `;
+
+  const grupos = estado.grupos || [];
+  const emitidos = new Set();
+  const canales = [];
+  estado.pistas.forEach((pista, i) => {
+    if (pista.grupo >= 0 && !emitidos.has(pista.grupo) && grupos[pista.grupo]) {
+      emitidos.add(pista.grupo);
+      canales.push(tiraGrupo(grupos[pista.grupo]));
+    }
+    canales.push(canal(pista, i));
+  });
+
+  host.innerHTML = `${canales.join('')}
     <button class="canal anadir" id="anadir-pista" title="Añadir pista">+</button>
     <div class="canal maestro${estado.pistaSeleccionada === -1 ? ' elegido' : ''}" data-pista="-1">
       <div class="cinta-color" style="background:var(--accent)"></div>
@@ -69,6 +106,13 @@ export function pintarMesa() {
 
     canalEl.addEventListener('pointerdown', (evento) => {
       if (evento.target.matches('input, button')) return;
+      // Con una pista marcada para agrupar, tocar la tira de un grupo la mete.
+      if (indice <= -2 && origenGrupo !== null && estado.pistas[origenGrupo]?.grupo === -1) {
+        const marcada = origenGrupo;
+        origenGrupo = null;
+        acciones.alMeterEnGrupo(marcada, -2 - indice);
+        return;
+      }
       acciones.alSeleccionarPista(indice);
     });
 
@@ -97,6 +141,23 @@ export function pintarMesa() {
     });
     canalEl.querySelector('.r')?.addEventListener('click', (evento) => {
       acciones.alArmar(indice, evento.currentTarget.getAttribute('aria-pressed') !== 'true');
+    });
+    canalEl.querySelector('.g')?.addEventListener('click', () => {
+      const pista = estado.pistas[indice];
+      if (!pista) return;
+      if (pista.grupo >= 0) { acciones.alSacarDeGrupo(indice); return; }
+      if (origenGrupo === indice) { origenGrupo = null; pintarMesa(); return; }
+      if (origenGrupo === null || estado.pistas[origenGrupo]?.grupo !== -1) {
+        origenGrupo = indice;
+        pintarMesa();
+        return;
+      }
+      const marcada = origenGrupo;
+      origenGrupo = null;
+      acciones.alCrearGrupo([marcada, indice]);
+    });
+    canalEl.querySelector('.x')?.addEventListener('click', () => {
+      acciones.alDeshacerGrupo(Number(canalEl.dataset.grupo));
     });
 
     for (const envio of canalEl.querySelectorAll('.envio')) {
@@ -153,6 +214,11 @@ export function pintarVU() {
   (m.pistas || []).forEach((niveles, i) => {
     const barra = $(`.mesa .vu[data-vu="${i}"] i`);
     if (barra) barra.style.height = altura(suavizar(`p${i}`, Math.max(niveles.izq, niveles.der)));
+  });
+
+  (m.grupos || []).forEach((niveles, i) => {
+    const barra = $(`.mesa .vu[data-vu="g${i}"] i`);
+    if (barra) barra.style.height = altura(suavizar(`g${i}`, Math.max(niveles.izq, niveles.der)));
   });
 
   // El espectro del Medidor, allí donde su tarjeta ponga el lienzo.

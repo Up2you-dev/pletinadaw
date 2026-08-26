@@ -182,6 +182,8 @@ app.whenReady().then(() => {
           await motor.orden('plugin.insertar', { pista: -1, tipo: 'medidor', indice: 4 });
           await motor.orden('plugin.insertar', { pista: 1, tipo: 'placa' });
           await motor.orden('plugin.insertar', { pista: 1, tipo: 'eco', indice: 1 });
+          await motor.orden('grupo.crear', { pistas: [0, 1], nombre: 'Ritmo' });
+          await motor.orden('rack.crear', { pista: -1, desde: 0, hasta: 1, nombre: 'Color' });
           const patron = await motor.orden('clip.midi.crear', { pista: 2, inicio: 0, compases: 2 });
           await motor.orden('clip.midi.notas', { id: patron.id, notas: [
             { nota: 36, inicio: 0, duracion: 0.4, velocidad: 110 },

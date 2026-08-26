@@ -106,6 +106,11 @@ namespace protocolo
             if (metodo == "pista.armar")          return respuesta (id, motor.armarPista ((int) params["pista"], (bool) params["activo"], params.hasProperty ("entrada") ? (int) params["entrada"] : 0, params.hasProperty ("midi") && (bool) params["midi"]));
             if (metodo == "transporte.grabar")    return respuesta (id, motor.grabar (params));
 
+            if (metodo == "grupo.crear")          return respuesta (id, motor.crearGrupo (params));
+            if (metodo == "grupo.meter")          return respuesta (id, motor.meterEnGrupo ((int) params["pista"], (int) params["grupo"]));
+            if (metodo == "grupo.sacar")          return respuesta (id, motor.sacarDeGrupo ((int) params["pista"]));
+            if (metodo == "grupo.deshacer")       return respuesta (id, motor.deshacerGrupo ((int) params["grupo"]));
+
             if (metodo == "clip.midi.crear")      return respuesta (id, motor.crearClipMidi ((int) params["pista"], (double) params["inicio"], params.hasProperty ("compases") ? (double) params["compases"] : 1.0));
             if (metodo == "clip.midi.notas")      return respuesta (id, motor.notasClipMidi (params["id"].toString(), params["notas"]));
             if (metodo == "clip.midi.cuantizar")  return respuesta (id, motor.cuantizarClipMidi (params["id"].toString(), params["division"].toString()));
@@ -124,6 +129,12 @@ namespace protocolo
             if (metodo == "plugin.presets")       return respuesta (id, motor.listarPresets (params["tipo"].toString()));
             if (metodo == "plugin.preset.guardar") return respuesta (id, motor.guardarPreset (params.hasProperty ("pista") ? (int) params["pista"] : -1, (int) params["indice"], params["nombre"].toString()));
             if (metodo == "plugin.preset.cargar")  return respuesta (id, motor.cargarPreset (params.hasProperty ("pista") ? (int) params["pista"] : -1, (int) params["indice"], params["nombre"].toString()));
+
+            if (metodo == "rack.crear")           return respuesta (id, motor.crearRack (params.hasProperty ("pista") ? (int) params["pista"] : -1, params.hasProperty ("desde") ? (int) params["desde"] : -1, params.hasProperty ("hasta") ? (int) params["hasta"] : -1, params["nombre"].toString()));
+            if (metodo == "rack.deshacer")        return respuesta (id, motor.deshacerRack (params.hasProperty ("pista") ? (int) params["pista"] : -1, (int) params["indice"]));
+            if (metodo == "rack.macro")           return respuesta (id, motor.macroRack (params.hasProperty ("pista") ? (int) params["pista"] : -1, (int) params["indice"], (int) params["macro"], params));
+            if (metodo == "rack.asignar")         return respuesta (id, motor.asignarMacroRack (params.hasProperty ("pista") ? (int) params["pista"] : -1, (int) params["indice"], (int) params["macro"], params));
+
             if (metodo == "automatizacion.puntos") return respuesta (id, motor.puntosAutomatizacion (params));
 
             if (metodo == "transporte.tocar")     return respuesta (id, motor.tocar());

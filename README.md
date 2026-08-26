@@ -14,7 +14,9 @@ construcción están levantadas y verificadas en CI:
 - **Editar**: importar, mover, recortar, dividir, duplicar, fundidos, imán,
   deshacer; ondas reales; **warp** al tempo del proyecto con transposición
   y detección de BPM al importar.
-- **Mezclar y masterizar**: envíos y retornos, automatización de volumen, y
+- **Mezclar y masterizar**: envíos y retornos, **grupos de pistas** con bus,
+  fader y cadena propia, **racks con 8 macros asignables**, side-chain
+  enrutable, automatización de volumen, y
   la suite de **35 efectos propios** — la cadena de mastering completa
   (Multibanda, Anchura, Techo true-peak, Dither y el Medidor
   LUFS/LRA/correlación/espectro/vectorscopio), reverbs (Placa, Sala,

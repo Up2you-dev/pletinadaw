@@ -212,7 +212,24 @@ Se abre la puerta a los plugins de fuera y al directo.
       fuente. Verificado cuantitativamente: una puerta con señal a −34 dB y
       umbral a −20 pasa de cerrada (−100 dB) a dejar los −34 exactos cuando
       la dispara la pista fuerte, y vuelve a cerrar al quitarla.
-- [ ] Grupos de pistas; racks/cadenas con macros (8 mandos por rack).
+- [x] **Grupos de pistas** (carpetas de submezcla de T.E.): agrupar desde la
+      mesa (botón ⌸ en dos clics), el bus con fader, pan, M/S, VU y **cadena
+      propia** (side-chain incluido) en su tira; sacar/meter pistas y
+      deshacer el grupo. Donde el protocolo acepta un índice de pista,
+      `<= -2` direcciona al grupo — sin métodos nuevos de plugins. Verificado
+      cuantitativamente: una utilidad a −20 dB en la cadena del grupo baja el
+      render máster a ×0.1 exacto, y deshacer el grupo lo devuelve clavado;
+      el grupo sobrevive a guardar/reabrir.
+- [x] **Racks con 8 macros**: «☰ Rack» envuelve la cadena a la vista (el
+      cableado en serie es transparente: render idéntico byte a byte en
+      tolerancia), cada macro (0–1) se asigna a parámetros de dentro con
+      efecto aditivo sobre el valor base, se renombra con doble clic y
+      persiste con el proyecto (asignaciones incluidas); ⇱ deshace el rack
+      sin perder el estado de los dispositivos. Verificado: macro 0.5 con
+      cantidad 0.25 sobre la ganancia de una utilidad = **+9 dB clavados**
+      (×2.8184 medido en render), macro a 0 = vuelta exacta a la base.
+      Pendiente: editar los parámetros contenidos sin deshacer el rack,
+      racks anidados, presets de rack.
 
 **Hecho cuando**: una sesión con 4 escenas se toca en directo (hecho en
 contenedor; el directo con manos y oídos, pendiente de hardware), un
@@ -285,7 +302,7 @@ La foto honesta, de una pasada:
 | F2 mastering | ✅ | −16 LUFS clavados midiendo el archivo | A/B con oídos, vectores EBU oficiales, congelar con dispositivo real |
 | F3 clásicos y warp | ✅ | 15 clásicos sonando; warp 120→150 exacto | marcadores de warp, RubberBand, escucha con material real |
 | F4 grabar y MIDI | ✅ núcleo | grabación de audio y MIDI reales en CI; Bruma sonando | WASAPI/ASIO y MIDI físicos, punch, tomas en capas, afinador |
-| F5 VST3 y sesión | ✅ núcleo | hosting con VST3 real (−6 dB exactos) y lanzamiento en sesión | editores nativos, plugins comerciales, grupos, racks, sidechain |
+| F5 VST3 y sesión | ✅ núcleo | hosting con VST3 real (−6 dB exactos), lanzamiento en sesión, side-chain (−34 dB exactos), grupos (×0.1 exacto) y racks con macros (+9 dB exactos) | editores nativos, plugins comerciales, racks anidados |
 | F6 pulido | 🔨 | humo de 38 tipos, carga de 100 pistas, empaquetado validado, manual en la app | audición del navegador, CPU por pista, renders dorados finos, beta y corte v1.0 |
 
 Regla de lectura: "✅ núcleo" = el corazón de la fase funciona y está

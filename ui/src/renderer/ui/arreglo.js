@@ -655,13 +655,14 @@ export function pintar(ahora) {
     }
     ctx.fillStyle = pista.color;
     ctx.fillRect(0, y, 3, altoPista);
+    const sangria = pista.grupo >= 0 ? 26 : 14; // las agrupadas, con sangría
     ctx.fillStyle = color.texto;
     ctx.font = '700 13px Archivo, sans-serif';
-    ctx.fillText(pista.nombre, 14, y + 16);
+    ctx.fillText(pista.nombre, sangria, y + 16);
     ctx.font = '11px Karla, sans-serif';
     ctx.fillStyle = color.apagado2;
     const extras = [pista.mute ? 'M' : '', pista.solo ? 'S' : ''].filter(Boolean).join(' ');
-    ctx.fillText(extras || 'audio', 14, y + 33);
+    ctx.fillText(extras || (pista.grupo >= 0 ? 'en grupo' : 'audio'), sangria, y + 33);
     ctx.strokeStyle = color.lineaSuave;
     ctx.beginPath(); ctx.moveTo(0, y + altoPista + 0.5); ctx.lineTo(CABECERA_W, y + altoPista + 0.5); ctx.stroke();
   });

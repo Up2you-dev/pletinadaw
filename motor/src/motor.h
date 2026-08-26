@@ -79,6 +79,13 @@ public:
     juce::var congelarPista (int indice, bool activo);
     juce::var armarPista (int indice, bool activo, int entrada, bool midi);
 
+    // Grupos: carpetas de submezcla. Donde se acepta un índice de pista,
+    // <= -2 direcciona al grupo g = -2 - indice (mezcla, renombrar, plugins).
+    juce::var crearGrupo (const juce::var& params);
+    juce::var meterEnGrupo (int indicePista, int indiceGrupo);
+    juce::var sacarDeGrupo (int indicePista);
+    juce::var deshacerGrupo (int indiceGrupo);
+
     // Clips.
     juce::var importarClip (int pista, const juce::String& ruta, double inicio);
     juce::var moverClip (const juce::String& id, double inicio, int pista);
@@ -103,7 +110,7 @@ public:
     juce::var pararSesion (int pista);                   // -1 = todas
     juce::var cuantizacionSesion (const juce::String& nombre);
 
-    // Cadenas de la suite (pista -1 = máster).
+    // Cadenas de la suite (pista -1 = máster, <= -2 = grupo -2-pista).
     juce::var insertarPlugin (int pista, const juce::String& tipo, int indice);
     juce::var quitarPlugin (int pista, int indice);
     juce::var parametroPlugin (int pista, int indice, const juce::String& parametro, double valor);
@@ -112,6 +119,12 @@ public:
     juce::var listarPresets (const juce::String& tipo);
     juce::var guardarPreset (int pista, int indice, const juce::String& nombre);
     juce::var cargarPreset (int pista, int indice, const juce::String& nombre);
+
+    // Racks: envolver un tramo de la cadena en un rack con 8 macros.
+    juce::var crearRack (int indicePista, int desde, int hasta, const juce::String& nombre);
+    juce::var deshacerRack (int indicePista, int indice);
+    juce::var macroRack (int indicePista, int indice, int macro, const juce::var& params);
+    juce::var asignarMacroRack (int indicePista, int indice, int macro, const juce::var& params);
 
     // Automatización: sustituye entera la curva de un parámetro.
     // params: {pista, parametro: "volumen"|"pan"|id, plugin?: indice, puntos: [{t, v}...]}
@@ -160,6 +173,9 @@ private:
     void emitirModelo();
 
     te::AudioTrack* pista (int indice) const;
+    te::FolderTrack* grupo (int indice) const;
+    te::RackInstance* rackEn (int indicePista, int indice) const;
+    void recogerRacksHuerfanos();
     te::Clip* clip (const juce::String& id) const;
     juce::StringArray rutasVst() const;
     void guardarCatalogoVst();
@@ -167,6 +183,7 @@ private:
     juce::Array<te::Plugin*> cadenaUsuario (int indice) const;
     juce::File carpetaMedia() const;
     void refrescarMedidoresDePista();
+    void refrescarMedidoresDeGrupo();
 
     Opciones opciones;
     std::function<void (const juce::String&)> emitir;
@@ -183,6 +200,8 @@ private:
     te::LevelMeasurer::Client clienteMaestro;
     std::vector<std::unique_ptr<te::LevelMeasurer::Client>> clientesPista;
     std::vector<te::LevelMeterPlugin*> medidoresPista;
+    std::vector<std::unique_ptr<te::LevelMeasurer::Client>> clientesGrupo;
+    std::vector<te::LevelMeterPlugin*> medidoresGrupo;
 
     // Bomba del modo sin audio.
     std::thread bomba;
