@@ -843,6 +843,37 @@ juce::var Motor::renombrarPista (int indice, const juce::String& nombre)
     return listarPistas();
 }
 
+juce::var Motor::moverPista (int indice, int tras)
+{
+    asegurarEdit();
+
+    auto* objetivo = pista (indice);
+    if (objetivo == nullptr)
+        throw std::runtime_error ("no existe la pista");
+
+    // La pista aterriza justo detrás de `tras` y ADOPTA su grupo (si el
+    // vecino de arriba vive en una carpeta, ella entra; si no, queda suelta).
+    // tras = -1 la pone la primera, al nivel raíz.
+    te::Track* delante = nullptr;
+    te::FolderTrack* padre = nullptr;
+    if (tras >= 0)
+    {
+        auto* vecino = pista (tras);
+        if (vecino == nullptr)
+            throw std::runtime_error ("no existe la pista de destino");
+        if (vecino == objetivo)
+            return listarPistas();
+        delante = vecino;
+        padre = vecino->getParentFolderTrack();
+    }
+
+    edit->getUndoManager().beginNewTransaction ("mover pista");
+    edit->moveTrack (objetivo, te::TrackInsertPoint (padre, delante));
+
+    emitirModelo();
+    return listarPistas();
+}
+
 juce::var Motor::mezclaPista (int indice, const juce::var& params)
 {
     asegurarEdit();
@@ -1861,6 +1892,29 @@ juce::var Motor::asignarMacroRack (int indicePista, int indice, int macro, const
 
     emitirModelo();
     return listarPistas();
+}
+
+juce::var Motor::parametroRack (int indicePista, int indice, int plugin, const juce::String& parametro, double valor)
+{
+    asegurarEdit();
+    auto* rack = rackEn (indicePista, indice);
+
+    auto contenidos = rack->type->getPlugins();
+    if (plugin < 0 || plugin >= contenidos.size())
+        throw std::runtime_error ("no existe ese plugin dentro del rack");
+
+    // El gemelo de plugin.parametro para la subcadena: escribe el valor BASE
+    // (las macros asignadas suman encima) y no emite modelo, que es de mando.
+    for (auto p : contenidos[plugin]->getAutomatableParameters())
+    {
+        if (p->paramID == parametro)
+        {
+            p->setParameter ((float) valor, juce::sendNotificationSync);
+            return juce::var (true);
+        }
+    }
+
+    throw std::runtime_error ("no existe el parámetro: " + parametro.toStdString());
 }
 
 /* ===================================== envíos, congelar, presets, curvas */
@@ -3042,6 +3096,9 @@ int Motor::pruebaProtocolo()
         "{\"id\": 35, \"metodo\": \"rack.macro\", \"params\": {\"pista\": 0, \"indice\": 0, \"macro\": 99, \"valor\": 2}}",
         "{\"id\": 36, \"metodo\": \"rack.asignar\", \"params\": {\"pista\": 0, \"indice\": 0, \"macro\": 0, \"plugin\": 7, \"parametro\": \"nada\"}}",
         "{\"id\": 37, \"metodo\": \"pista.mezcla\", \"params\": {\"pista\": -42, \"volumenDb\": 0}}",
+        "{\"id\": 38, \"metodo\": \"pista.mover\", \"params\": {\"pista\": 0, \"tras\": 99}}",
+        "{\"id\": 39, \"metodo\": \"pista.mover\", \"params\": {\"pista\": 42}}",
+        "{\"id\": 40, \"metodo\": \"rack.parametro\", \"params\": {\"pista\": 0, \"indice\": 0, \"plugin\": 9, \"parametro\": \"x\", \"valor\": 1}}",
     };
 
     int fallos = 0;
@@ -3523,6 +3580,44 @@ int Motor::autoprueba()
                      && std::abs (picoGrupo1 - picoGrupo0 * 0.1f) < 0.005f
                      && std::abs (picoGrupo2 - picoGrupo0) < 0.005f;
 
+    // Reordenar: C al principio, C de vuelta tras B, y al mover una pista
+    // detrás de una agrupada tiene que ADOPTAR su grupo.
+    renombrarPista (0, "A");
+    renombrarPista (1, "B");
+    renombrarPista (2, "C");
+    moverPista (2, -1);
+    bool reordena;
+    {
+        const auto m = listarPistas();
+        reordena = m["pistas"][0]["nombre"].toString() == "C"
+                && m["pistas"][1]["nombre"].toString() == "A"
+                && m["pistas"][2]["nombre"].toString() == "B";
+    }
+    moverPista (0, 2);
+    {
+        const auto m = listarPistas();
+        reordena = reordena
+                && m["pistas"][0]["nombre"].toString() == "A"
+                && m["pistas"][1]["nombre"].toString() == "B"
+                && m["pistas"][2]["nombre"].toString() == "C";
+    }
+    {
+        auto peticion = objeto();
+        juce::Array<juce::var> miembros { 0, 1 };
+        pon (peticion, "pistas", juce::var (miembros));
+        crearGrupo (peticion);
+    }
+    moverPista (2, 0);
+    {
+        const auto m = listarPistas();
+        reordena = reordena
+                && m["grupos"][0]["pistas"].size() == 3
+                && (int) m["pistas"][1]["grupo"] == 0
+                && m["pistas"][1]["nombre"].toString() == "C";
+    }
+    deshacerGrupo (0);
+    pausa (100);
+
     insertarPlugin (0, "utilidad", -1);
     insertarPlugin (0, "utilidad", -1);
     parametroPlugin (0, 0, "ganancia", -6.0);
@@ -3542,6 +3637,14 @@ int Motor::autoprueba()
                   && pl[0]["macros"].size() == 8
                   && pl[0]["cadena"].size() == 2;
     }
+
+    // Editar DENTRO del rack: la segunda utilidad sube de -6 a 0 dB (el
+    // render gana esos 6 dB exactos) y vuelve a su sitio.
+    parametroRack (0, 0, 1, "ganancia", 0.0);
+    pausa (200);
+    const float picoRackParam = render ("autoprueba-racks-p.wav");
+    parametroRack (0, 0, 1, "ganancia", -6.0);
+    pausa (200);
 
     {
         auto peticion = objeto();
@@ -3591,6 +3694,7 @@ int Motor::autoprueba()
 
     const bool enracka = rackModelo && picoRack0 > 0.05f
                       && std::abs (picoRack1 - picoRack0) < 0.005f;
+    const bool rackParametro = std::abs (picoRackParam - picoRack0 * 1.9953f) < 0.02f;
     const bool macroMueve = std::abs (picoRack2 - picoRack0 * 2.8184f) < 0.02f
                          && std::abs (picoRack3 - picoRack0) < 0.005f;
     const bool rackDeshecho = rackEnLinea && std::abs (picoRack4 - picoRack0) < 0.005f;
@@ -3602,7 +3706,8 @@ int Motor::autoprueba()
     const bool previa = picoPrevia > 0.03f;
     const bool ok = avanza && suena && deshace && renderiza && persiste && automatiza && normaliza && warpea
                  && graba && midiSuena && midiGraba && sesion && previa && vst
-                 && agrupa && grupoPersiste && enracka && macroMueve && rackPersiste && rackDeshecho;
+                 && agrupa && grupoPersiste && enracka && macroMueve && rackPersiste && rackDeshecho
+                 && reordena && rackParametro;
 
     auto r = objeto();
     pon (r, "ok", ok);
@@ -3635,6 +3740,9 @@ int Motor::autoprueba()
     pon (r, "rackPersiste", rackPersiste);
     pon (r, "rackDeshecho", rackDeshecho);
     pon (r, "picoRack", juce::String (picoRack0, 3) + " -> " + juce::String (picoRack1, 3) + " -> " + juce::String (picoRack2, 3) + " -> " + juce::String (picoRack3, 3) + " -> " + juce::String (picoRack4, 3));
+    pon (r, "reordena", reordena);
+    pon (r, "rackParametro", rackParametro);
+    pon (r, "picoRackParam", picoRackParam);
     emitir (protocolo::evento ("prueba", r));
 
     return ok ? 0 : 1;

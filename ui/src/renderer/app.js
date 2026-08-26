@@ -5,6 +5,7 @@ import { montarArreglo, pintar as pintarArreglo, olvidarPicos } from './ui/arreg
 import { montarMesa, pintarMesa, pintarVU } from './ui/mesa.js';
 import { montarTira, pintarTira } from './ui/tira.js';
 import { montarPiano, pintarPiano } from './ui/piano.js';
+import { arrancarVisita } from './ui/visita.js';
 import { montarSesion, pintarSesion } from './ui/sesion.js';
 import { aviso, $ } from './ui/dom.js';
 
@@ -192,6 +193,11 @@ const accionesArreglo = {
   alImportarRuta(ruta, fila, inicio) {
     if (!conectado()) return soloConMotor();
     importarRutas([ruta], fila, inicio);
+  },
+
+  alMoverPista(fila, tras) {
+    if (!conectado()) return soloConMotor();
+    orden('pista.mover', { pista: fila, tras }).catch((e) => aviso(e.message));
   },
 
   alPedirPicos(clip) {
@@ -456,6 +462,9 @@ montarTira({
   alMacro: (pista, indice, macro, valor) => {
     if (conectado()) orden('rack.macro', { pista, indice, macro, valor }).catch(() => {});
   },
+  alParametroRack: (pista, indice, plugin, parametro, valor) => {
+    if (conectado()) orden('rack.parametro', { pista, indice, plugin, parametro, valor }).catch(() => {});
+  },
   alNombrarMacro: (pista, indice, macro, nombre) => {
     if (!conectado()) return soloConMotor();
     orden('rack.macro', { pista, indice, macro, nombre }).catch((e) => aviso(e.message));
@@ -606,13 +615,19 @@ if (puente) {
   });
 }
 
-if (new URLSearchParams(window.location.search).get('vista') === 'sesion') {
+const consultaInicial = new URLSearchParams(window.location.search);
+if (consultaInicial.get('vista') === 'sesion') {
   cambiar({ vistaSesion: true });
 }
 
 if (!puente) {
   cambiar({ pistas: pistasDeMaqueta(), pistaSeleccionada: 0 });
 }
+
+// La visita guiada: la primera vez de verdad, o forzada para capturarla;
+// nunca en el humo normal, que taparía la captura.
+if (consultaInicial.get('visita') === '1') arrancarVisita(true);
+else if (consultaInicial.get('humo') !== '1') arrancarVisita(false);
 
 /* ---------- repintados por suscripción ---------- */
 
@@ -663,6 +678,7 @@ const ATAJOS = [
   ['Ctrl+rueda', 'zoom del arreglo'],
   ['Doble clic en el vacío', 'crear un clip MIDI'],
   ['Doble clic en un clip MIDI', 'abrir el piano roll'],
+  ['Arrastrar una cabecera', 'reordenar la pista (entra y sale de grupos)'],
   ['Esc', 'cerrar el piano roll o esta ayuda'],
   ['?', 'esta ayuda'],
 ];

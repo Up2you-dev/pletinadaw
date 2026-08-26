@@ -22,11 +22,17 @@ atajos vive dentro de la aplicación, en la tecla `?`.
 4. **Guarda con Ctrl+S**. Además, el proyecto se autoguarda cada dos minutos
    con la escritura segura del motor.
 
+La primera vez que abras Pletina, una **visita guiada** de siete paradas te
+enseña la ventana (Esc la salta; no vuelve a aparecer sola).
+
 ## Editar
 
 - **Mover**: arrastra un clip (también a otra pista). **Recortar**: tira de
   sus bordes. **Dividir**: tecla `T` sobre el cursor. **Duplicar**: Ctrl+D.
   **Borrar**: Supr. Todo tiene **deshacer** (Ctrl+Z / Ctrl+Y).
+- **Reordenar pistas**: arrastra la cabecera de una pista arriba o abajo; la
+  línea marca dónde aterriza. Si la sueltas bajo una pista agrupada, entra
+  en su grupo; si la sueltas fuera, sale.
 - **Fundidos**: cada clip tiene dos asas arriba; arrástralas para el fade de
   entrada y de salida.
 - **Imán**: los gestos van imantados a la rejilla, que se afina sola con el
@@ -59,9 +65,10 @@ atajos vive dentro de la aplicación, en la tecla `?`.
 - **Racks**: el botón **☰ Rack** de la tira envuelve la cadena a la vista en
   un rack con **8 macros**: asigna cada macro a parámetros de dentro con su
   desplegable ＋ (el efecto se suma al valor del parámetro), renómbrala con
-  doble clic y quita asignaciones desde sus chips. Dentro del rack los
-  mandos se mueven con las macros; **⇱** deshace el rack y devuelve los
-  dispositivos en línea con su estado intacto.
+  doble clic y quita asignaciones desde sus chips. Los mandos de dentro
+  también se mueven a mano (tocan el valor base; las macros asignadas suman
+  encima); **⇱** deshace el rack y devuelve los dispositivos en línea con
+  su estado intacto.
 - **Congelar**: el botón ❄ del canal (experimental).
 
 ## Grabar

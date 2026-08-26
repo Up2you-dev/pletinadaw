@@ -213,6 +213,12 @@ function bajar(evento) {
 
   if (donde.zona === 'cabecera') {
     cambiar({ pistaSeleccionada: donde.fila });
+    // Y de paso, agarrar: arrastrar la cabecera reordena la pista (el clic
+    // suelto solo selecciona; el doble clic sigue renombrando).
+    if (donde.fila != null && donde.fila >= 0 && donde.fila < estado.pistas.length) {
+      gesto = { tipo: 'reordenar', fila: donde.fila, yInicial: y, hueco: null };
+      canvas.setPointerCapture(evento.pointerId);
+    }
     return;
   }
 
@@ -296,8 +302,16 @@ function mover(evento) {
     const donde = encontrar(x, y);
     canvas.style.cursor = donde.zona === 'bordeIzq' || donde.zona === 'bordeDer' ? 'ew-resize'
                        : donde.zona === 'fundidoIzq' || donde.zona === 'fundidoDer' ? 'col-resize'
-                       : donde.zona === 'clip' ? 'grab'
+                       : donde.zona === 'clip' || donde.zona === 'cabecera' ? 'grab'
                        : donde.zona === 'regla' ? 'text' : 'default';
+    return;
+  }
+
+  if (gesto.tipo === 'reordenar') {
+    if (gesto.hueco === null && Math.abs(y - gesto.yInicial) < 7) return;
+    const altoPista = altoPistaActual();
+    gesto.hueco = Math.max(0, Math.min(estado.pistas.length, Math.round((y - REGLA_H) / altoPista)));
+    canvas.style.cursor = 'grabbing';
     return;
   }
 
@@ -363,6 +377,13 @@ function soltar() {
       g.puntos.sort((a, b) => a.t - b.t);
       acciones.alAutomatizar(g.fila, g.puntos);
     }
+    return;
+  }
+
+  if (g.tipo === 'reordenar') {
+    // hueco G = colarse encima de la fila G, o sea, detrás de la G-1.
+    if (g.hueco === null || g.hueco === g.fila || g.hueco === g.fila + 1) return;
+    acciones.alMoverPista(g.fila, g.hueco - 1);
     return;
   }
 
@@ -671,6 +692,19 @@ export function pintar(ahora) {
   });
   ctx.fillStyle = color.panel;
   ctx.fillRect(0, 0, CABECERA_W, REGLA_H);
+
+  // La línea de aterrizaje al reordenar pistas arrastrando su cabecera.
+  if (gesto?.tipo === 'reordenar' && gesto.hueco !== null) {
+    const yLinea = REGLA_H + gesto.hueco * altoPista;
+    ctx.strokeStyle = color.acento;
+    ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(0, yLinea + 0.5); ctx.lineTo(ancho, yLinea + 0.5); ctx.stroke();
+    ctx.lineWidth = 1;
+    ctx.fillStyle = color.acento;
+    ctx.beginPath();
+    ctx.moveTo(0, yLinea - 5); ctx.lineTo(8, yLinea); ctx.lineTo(0, yLinea + 5);
+    ctx.closePath(); ctx.fill();
+  }
 
   /* --- cursor de reproducción --- */
   const segundos = posicionParaPintar(ahora);

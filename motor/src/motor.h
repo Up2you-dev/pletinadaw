@@ -74,6 +74,7 @@ public:
     juce::var crearPista();
     juce::var borrarPista (int indice);
     juce::var renombrarPista (int indice, const juce::String& nombre);
+    juce::var moverPista (int indice, int tras);   // tras -1 = al principio
     juce::var mezclaPista (int indice, const juce::var& params);
     juce::var envioPista (int indice, int bus, double nivelDb);
     juce::var congelarPista (int indice, bool activo);
@@ -125,6 +126,7 @@ public:
     juce::var deshacerRack (int indicePista, int indice);
     juce::var macroRack (int indicePista, int indice, int macro, const juce::var& params);
     juce::var asignarMacroRack (int indicePista, int indice, int macro, const juce::var& params);
+    juce::var parametroRack (int indicePista, int indice, int plugin, const juce::String& parametro, double valor);
 
     // Automatización: sustituye entera la curva de un parámetro.
     // params: {pista, parametro: "volumen"|"pan"|id, plugin?: indice, puntos: [{t, v}...]}

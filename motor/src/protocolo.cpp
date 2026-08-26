@@ -83,6 +83,7 @@ namespace protocolo
             if (metodo == "pista.crear")          return respuesta (id, motor.crearPista());
             if (metodo == "pista.borrar")         return respuesta (id, motor.borrarPista ((int) params["pista"]));
             if (metodo == "pista.renombrar")      return respuesta (id, motor.renombrarPista ((int) params["pista"], params["nombre"].toString()));
+            if (metodo == "pista.mover")          return respuesta (id, motor.moverPista ((int) params["pista"], params.hasProperty ("tras") ? (int) params["tras"] : -1));
             if (metodo == "pista.mezcla")         return respuesta (id, motor.mezclaPista (params.hasProperty ("pista") ? (int) params["pista"] : -1, params));
             if (metodo == "pista.envio")          return respuesta (id, motor.envioPista ((int) params["pista"], (int) params["bus"], (double) params["nivelDb"]));
             if (metodo == "pista.congelar")       return respuesta (id, motor.congelarPista ((int) params["pista"], (bool) params["activo"]));
@@ -134,6 +135,7 @@ namespace protocolo
             if (metodo == "rack.deshacer")        return respuesta (id, motor.deshacerRack (params.hasProperty ("pista") ? (int) params["pista"] : -1, (int) params["indice"]));
             if (metodo == "rack.macro")           return respuesta (id, motor.macroRack (params.hasProperty ("pista") ? (int) params["pista"] : -1, (int) params["indice"], (int) params["macro"], params));
             if (metodo == "rack.asignar")         return respuesta (id, motor.asignarMacroRack (params.hasProperty ("pista") ? (int) params["pista"] : -1, (int) params["indice"], (int) params["macro"], params));
+            if (metodo == "rack.parametro")       return respuesta (id, motor.parametroRack (params.hasProperty ("pista") ? (int) params["pista"] : -1, (int) params["indice"], (int) params["plugin"], params["parametro"].toString(), (double) params["valor"]));
 
             if (metodo == "automatizacion.puntos") return respuesta (id, motor.puntosAutomatizacion (params));
 

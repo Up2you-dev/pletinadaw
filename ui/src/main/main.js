@@ -50,8 +50,14 @@ function crearVentana() {
 
   ventana.once('ready-to-show', () => ventana.show());
   ventana.on('closed', () => { ventana = null; });
-  // PLETINA_VISTA=sesion abre en Session View (lo usa el humo para capturarla).
-  ventana.loadURL(appUrl() + (process.env.PLETINA_VISTA === 'sesion' ? '?vista=sesion' : ''));
+  // PLETINA_VISTA=sesion abre en Session View; el humo marca ?humo=1 (así la
+  // visita guiada no tapa la captura) y PLETINA_VISITA=1 la fuerza a salir.
+  const consulta = new URLSearchParams();
+  if (process.env.PLETINA_VISTA === 'sesion') consulta.set('vista', 'sesion');
+  if (process.env.PLETINA_SMOKE) consulta.set('humo', '1');
+  if (process.env.PLETINA_VISITA === '1') consulta.set('visita', '1');
+  const cadena = consulta.toString();
+  ventana.loadURL(appUrl() + (cadena ? `?${cadena}` : ''));
 }
 
 app.whenReady().then(() => {

@@ -98,13 +98,14 @@ export function pintarTira() {
           }).join('')}
         </div>`).join('')}
       </div>
-      <div class="rack-cadena">${(plugin.cadena || []).map((c) => `
+      <div class="rack-cadena">${(plugin.cadena || []).map((c, ci) => `
         <div class="contenido${c.activo ? '' : ' apagado'}">
           <span class="nombre-contenido">${esc(c.nombre)}</span>
           ${(c.parametros || []).map((p) => `
-            <label class="mando mini" title="${esc(p.nombre)}: ${Number(p.valor).toFixed(2)} (se mueve con las macros)">
+            <label class="mando mini" title="${esc(p.nombre)}: ${Number(p.valor).toFixed(2)} — valor base; las macros asignadas suman encima">
               <span>${esc(p.nombre)}</span>
-              <input type="range" min="${p.min}" max="${p.max}" step="${(p.max - p.min) / 200}" value="${p.valor}" disabled>
+              <input type="range" data-contenido="${ci}" data-parametro-rack="${esc(p.id)}"
+                     min="${p.min}" max="${p.max}" step="${(p.max - p.min) / 200}" value="${p.valor}">
             </label>`).join('')}
         </div>`).join('')}
       </div>`;
@@ -253,6 +254,13 @@ export function pintarTira() {
       mando.addEventListener('input', () => {
         mando.title = `${Number(mando.value).toFixed(2)}`;
         acciones.alMacro(indicePista, indice, Number(mando.dataset.macro), Number(mando.value));
+      });
+    }
+
+    for (const mando of tarjeta.querySelectorAll('input[data-parametro-rack]')) {
+      mando.addEventListener('input', () => {
+        acciones.alParametroRack(indicePista, indice, Number(mando.dataset.contenido),
+          mando.dataset.parametroRack, Number(mando.value));
       });
     }
 

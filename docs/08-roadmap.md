@@ -41,7 +41,9 @@ De maqueta a editor de verdad: la primera vez que alguien monta un tema.
 - [x] Formas de onda reales por picos calculados por el motor (por archivo
       fuente, con caché en la interfaz).
 - [x] Pistas: crear, borrar, renombrar (doble clic), color por índice,
-      mute/solo. Pendiente: reordenar, armado (con la grabación, F4).
+      mute/solo, y **reordenar arrastrando la cabecera** (`pista.mover`: la
+      pista aterriza tras su vecina de arriba y adopta su grupo — verificado
+      en la autoprueba, adopción incluida). El armado llegó con F4.
 - [x] Mesa: fader, pan, VU por pista, máster con VU y sonoridad.
       Pendiente: sends y retornos.
 - [x] Cadenas de inserción por pista y máster con la tira operativa
@@ -228,7 +230,9 @@ Se abre la puerta a los plugins de fuera y al directo.
       sin perder el estado de los dispositivos. Verificado: macro 0.5 con
       cantidad 0.25 sobre la ganancia de una utilidad = **+9 dB clavados**
       (×2.8184 medido en render), macro a 0 = vuelta exacta a la base.
-      Pendiente: editar los parámetros contenidos sin deshacer el rack,
+      Los parámetros contenidos también se editan a mano desde la tarjeta
+      (`rack.parametro` escribe el valor base y las macros suman encima:
+      +6 dB medidos exactos en la autoprueba). Pendiente:
       racks anidados, presets de rack.
 
 **Hecho cuando**: una sesión con 4 escenas se toca en directo (hecho en
@@ -270,7 +274,10 @@ Lo que separa "funciona" de "se recomienda".
       auditoría de PDC.
 - [x] **Manual en español dentro de la app**: escrito ([manual](manual.md))
       y servido en la pestaña Manual de la ayuda (`?`), también en la app
-      empaquetada. Pendiente: las visitas guiadas de primer arranque.
+      empaquetada. Y la **visita guiada de primer arranque**: siete paradas
+      con foco por zona (transporte, rail, arreglo, mesa, tira, sesión,
+      ayuda), se salta con Esc, se recuerda y no vuelve a salir; en el humo
+      se fuerza con `PLETINA_VISITA=1` para capturarla.
 - [x] **Navegador de sonidos con audición**: sección Sonidos en el rail —
       elegir carpeta, listar sus audios, **clic escucha** (edit de previa
       aparte, verificado en la autoprueba con el proyecto parado) y doble
@@ -305,12 +312,12 @@ La foto honesta, de una pasada:
 | Fase | Estado | Verificado en CI/contenedor | Pendiente que exige mundo real |
 |---|---|---|---|
 | F0 esqueleto | ✅ | compila, habla, suena, autoprueba | — |
-| F1 editar y sonar | ✅ | ciclo entero de edición y render | crossfade automático, loop de clip, goma, reordenar |
+| F1 editar y sonar | ✅ | ciclo entero de edición y render, reordenar pistas arrastrando | crossfade automático, loop de clip, goma, reordenar plugins en la tira |
 | F2 mastering | ✅ | −16 LUFS clavados midiendo el archivo | A/B con oídos, vectores EBU oficiales, congelar con dispositivo real |
 | F3 clásicos y warp | ✅ | 15 clásicos sonando; warp 120→150 exacto | marcadores de warp, RubberBand, escucha con material real |
 | F4 grabar y MIDI | ✅ núcleo | grabación de audio y MIDI reales en CI; Bruma sonando | WASAPI/ASIO y MIDI físicos, punch, tomas en capas, afinador |
 | F5 VST3 y sesión | ✅ núcleo | hosting con VST3 real (−6 dB exactos), lanzamiento en sesión, side-chain (−34 dB exactos), grupos (×0.1 exacto) y racks con macros (+9 dB exactos) | editores nativos, plugins comerciales, racks anidados |
-| F6 pulido | 🔨 | humo de 38 tipos con dorados, carga de 100 pistas, empaquetado validado, manual en la app, navegador con audición/búsqueda/favoritos/arrastre, CPU del motor en cabecera | visitas guiadas, actualizador, CPU por pista, beta y corte v1.0 |
+| F6 pulido | 🔨 | humo de 38 tipos con dorados, carga de 100 pistas, empaquetado validado, manual en la app, visita guiada, navegador con audición/búsqueda/favoritos/arrastre, CPU del motor en cabecera | actualizador, CPU por pista, beta y corte v1.0 |
 
 Regla de lectura: "✅ núcleo" = el corazón de la fase funciona y está
 verificado; los flecos están listados en su sección y no se esconden. Lo
