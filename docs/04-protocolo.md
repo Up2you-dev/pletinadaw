@@ -51,7 +51,7 @@ se puede enseñar tal cual).
 |---|---|---|
 | `arrancado` | al nacer el proceso | `version`, `audio` |
 | `modelo` | tras cada orden que muta el proyecto | la foto completa: `proyecto`, `bpm`, `metronomo`, `bucle`, `pistas[]` (con `clips[]` —`tipo` audio/midi; los de audio con posición, fundidos, `autoTempo`, `transposicion` y `bpmFuente`; los MIDI con `notas[]` y `cuantizacion`—, `plugins[]` con sus `parametros[]` descriptores, `grupo` —índice del grupo o -1—, `envios[]`, `retorno`, `congelada`, `armada` y `automatizacionVolumen[]`), `grupos[]` (`nombre`, mezcla, `pistas[]` miembros y `plugins[]` de su cadena) y `master`. Un plugin de `tipo` `rack` trae además `macros[]` (`nombre`, `valor`, `asignaciones[{plugin, parametro, cantidad}]`) y `cadena[]` (la subcadena envuelta, descrita igual que una cadena normal) |
-| `medidores` | ~15 Hz mientras reproduce (y una última al parar) | `segundos`, `reproduciendo`, `grabando`, `izq`, `der` (dBFS), `pistas[]` (VU por pista), `grupos[]` (VU por grupo), `sesion[][]` (estados de las ranuras, si hay escenas) y, si hay Medidor en el máster, `lufs {m, s, i, lra, correlacion, pico, picoVerdadero}` y `espectro[24]` |
+| `medidores` | ~15 Hz mientras reproduce (y una última al parar) | `segundos`, `reproduciendo`, `grabando`, `izq`, `der` (dBFS), `cpu` (0..1 del hilo de audio, también con la bomba sin audio), `pistas[]` (VU por pista), `grupos[]` (VU por grupo), `sesion[][]` (estados de las ranuras, si hay escenas) y, si hay Medidor en el máster, `lufs {m, s, i, lra, correlacion, pico, picoVerdadero}` y `espectro[24]` |
 | `render.terminado` | al acabar una exportación | `ruta`, `ok` |
 | `prueba` | solo con `--prueba` | los veredictos de la autoprueba |
 

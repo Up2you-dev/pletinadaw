@@ -347,6 +347,18 @@ svg{display:block; fill:none; stroke:currentColor; stroke-width:1.7; stroke-line
 .rail .boton-carpeta, .rail .sonido{cursor:pointer}
 .rail .boton-carpeta:hover span, .rail .sonido:hover span{color:var(--accent)}
 .rail .sonido.sonando span{color:var(--exito)}
+.rail .busca-sonidos{
+  width:100%; box-sizing:border-box; margin:2px 0 4px; padding:3px 8px;
+  font:inherit; font-size:11.5px; color:var(--text); background:var(--panel-2);
+  border:1px solid var(--line); border-radius:6px;
+}
+.rail .busca-sonidos:focus{outline:none; border-color:var(--accent)}
+.rail .sonido .fav{flex:none; margin-left:auto; color:transparent; font-size:12px}
+.rail .sonido:hover .fav{color:var(--line)}
+.rail .sonido .fav:hover{color:var(--accent)}
+.rail .sonido .fav.activo{color:var(--accent)}
+.rail .sonido .detalle + .fav, .rail .sonido:has(.detalle) .fav{margin-left:6px}
+.chip-motor .cpu{font-family:var(--ff-mono); font-size:10px; color:var(--muted-2); flex:none}
 
 .medidor-lienzos{display:flex; gap:6px; align-items:center}
 .medidor-lienzos canvas{border-radius:4px; background:var(--bg)}

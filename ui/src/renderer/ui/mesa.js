@@ -221,6 +221,10 @@ export function pintarVU() {
     if (barra) barra.style.height = altura(suavizar(`g${i}`, Math.max(niveles.izq, niveles.der)));
   });
 
+  // El uso de CPU del motor de audio, en el chip de la cabecera.
+  const cpu = $('#cpu-motor');
+  if (cpu) cpu.textContent = m.cpu != null ? `· ${Math.round(m.cpu * 100)}%` : '';
+
   // El espectro del Medidor, allí donde su tarjeta ponga el lienzo.
   for (const canvas of $$('.espectro')) {
     const ctx = canvas.getContext('2d');

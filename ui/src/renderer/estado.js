@@ -20,7 +20,7 @@ export const estado = {
   // cursor interpole fino entre eventos (llegan a ~15 Hz).
   segundos: 0,
   refrescadoEn: 0,
-  medidores: { izq: -100, der: -100, pistas: [], grupos: [], lufs: null, espectro: null },
+  medidores: { izq: -100, der: -100, pistas: [], grupos: [], lufs: null, espectro: null, cpu: null },
   automatizando: false,
 
   motor: { estado: 'maqueta', info: null, binario: null },

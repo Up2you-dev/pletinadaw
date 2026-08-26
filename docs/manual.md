@@ -12,8 +12,11 @@ atajos vive dentro de la aplicación, en la tecla `?`.
 2. **Importa audio** con el botón Importar o **arrastrando archivos** al
    arreglo (WAV, MP3, FLAC, OGG). El audio se copia a `media/`: el proyecto
    nunca depende de archivos sueltos de por ahí. La sección **Sonidos** del
-   rail es el navegador: elige una carpeta, **clic escucha** el archivo (sin
-   tocar el proyecto) y **doble clic lo importa** en el cursor.
+   rail es el navegador: elige una carpeta, **busca** por nombre (sin
+   acentos ni mayúsculas), marca **favoritos ★** (van siempre arriba y se
+   recuerdan), **clic escucha** el archivo (sin tocar el proyecto), **doble
+   clic lo importa** en el cursor y **arrastrarlo al arreglo** lo suelta en
+   la pista y el compás donde caiga.
 3. **Espacio** toca y para. La regla de arriba busca; su mitad alta dibuja
    el bucle (y el botón de ciclo lo enciende).
 4. **Guarda con Ctrl+S**. Además, el proyecto se autoguarda cada dos minutos

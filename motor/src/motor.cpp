@@ -2568,6 +2568,10 @@ void Motor::timerCallback()
     pon (datos, "izq", izqDb);
     pon (datos, "der", derDb);
 
+    // Uso de CPU del hilo de audio (0..1), medido por JUCE en el callback:
+    // también con la bomba interna, que empuja por el mismo camino.
+    pon (datos, "cpu", engine.getDeviceManager().deviceManager.getCpuUsage());
+
     juce::Array<juce::var> porPista;
     for (auto& cliente : clientesPista)
     {

@@ -177,7 +177,8 @@ export function montarArreglo(inyectadas) {
     }
   }, { passive: false });
 
-  // Soltar archivos: importa en la pista y el compás donde caen.
+  // Soltar: archivos del sistema o un sonido arrastrado del rail, en la
+  // pista y el compás donde caen.
   canvas.addEventListener('dragover', (evento) => { evento.preventDefault(); });
   canvas.addEventListener('drop', (evento) => {
     evento.preventDefault();
@@ -185,6 +186,8 @@ export function montarArreglo(inyectadas) {
     const donde = encontrar(evento.clientX - rect.left, evento.clientY - rect.top);
     const fila = donde.fila ?? 0;
     const inicio = iman(Math.max(0, segundosDeX(evento.clientX - rect.left)), evento.altKey);
+    const rutaRail = evento.dataTransfer.getData('text/pletina-ruta');
+    if (rutaRail) return acciones.alImportarRuta(rutaRail, fila, inicio);
     acciones.alImportar([...evento.dataTransfer.files], fila, inicio);
   });
 }

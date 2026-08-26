@@ -264,14 +264,21 @@ Lo que separa "funciona" de "se recomienda".
       clip sonando a la vez y falla si el transporte no sigue al reloj de
       pared o la foto del modelo tarda; en el contenedor de CI: creación en
       ~26 ms, modelo en 1 ms y transporte clavado (3,008 s en 3,009 s).
-      Pendiente: medidor de CPU/disco por pista y auditoría de PDC.
+      El **uso de CPU del hilo de audio** viaja con los `medidores` y se ve
+      en el chip del motor de la cabecera (también con la bomba sin audio:
+      ~5 % en el contenedor del humo). Pendiente: CPU/disco por pista y
+      auditoría de PDC.
 - [x] **Manual en español dentro de la app**: escrito ([manual](manual.md))
       y servido en la pestaña Manual de la ayuda (`?`), también en la app
       empaquetada. Pendiente: las visitas guiadas de primer arranque.
 - [x] **Navegador de sonidos con audición**: sección Sonidos en el rail —
       elegir carpeta, listar sus audios, **clic escucha** (edit de previa
       aparte, verificado en la autoprueba con el proyecto parado) y doble
-      clic importa en el cursor. Pendiente: búsqueda, favoritos y arrastre.
+      clic importa en el cursor. Con **búsqueda** (subcadena sin acentos ni
+      mayúsculas, lógica pura con tests), **favoritos ★** (siempre arriba,
+      recordados en la interfaz) y **arrastre al arreglo** (la fila del rail
+      se suelta en la pista y el compás donde caiga, el mismo camino que ya
+      tenían los archivos del sistema).
 - [x] **Recuperación tras caída del motor**: si el proceso de audio muere,
       la interfaz lo relanza (eso ya estaba) y ahora además reabre sola el
       proyecto (el autoguardado de cada 2 min acota lo perdido); al arrancar
@@ -303,7 +310,7 @@ La foto honesta, de una pasada:
 | F3 clásicos y warp | ✅ | 15 clásicos sonando; warp 120→150 exacto | marcadores de warp, RubberBand, escucha con material real |
 | F4 grabar y MIDI | ✅ núcleo | grabación de audio y MIDI reales en CI; Bruma sonando | WASAPI/ASIO y MIDI físicos, punch, tomas en capas, afinador |
 | F5 VST3 y sesión | ✅ núcleo | hosting con VST3 real (−6 dB exactos), lanzamiento en sesión, side-chain (−34 dB exactos), grupos (×0.1 exacto) y racks con macros (+9 dB exactos) | editores nativos, plugins comerciales, racks anidados |
-| F6 pulido | 🔨 | humo de 38 tipos, carga de 100 pistas, empaquetado validado, manual en la app | audición del navegador, CPU por pista, renders dorados finos, beta y corte v1.0 |
+| F6 pulido | 🔨 | humo de 38 tipos con dorados, carga de 100 pistas, empaquetado validado, manual en la app, navegador con audición/búsqueda/favoritos/arrastre, CPU del motor en cabecera | visitas guiadas, actualizador, CPU por pista, beta y corte v1.0 |
 
 Regla de lectura: "✅ núcleo" = el corazón de la fase funciona y está
 verificado; los flecos están listados en su sección y no se esconden. Lo

@@ -1,18 +1,82 @@
 import { $, esc } from './dom.js';
 import { ICO } from './iconos.js';
 import { CATALOGO } from '../../shared/catalogo.js';
+import { filtrarSonidos } from '../../shared/sonidos.js';
 import { estado } from '../estado.js';
 
 /**
  * El rail: el proyecto arriba, el navegador de sonidos (una carpeta elegida,
- * sus audios, clic importa en el cursor), y debajo el catálogo entero de la
- * suite con su fase de llegada. Enseñar el mapa es parte de la casa: lo que
- * aún no existe se ve en gris con su fase, no se esconde ni se finge.
+ * búsqueda sin acentos, favoritos ★ arriba; clic escucha, doble clic importa
+ * en el cursor y arrastrar suelta en el arreglo), y debajo el catálogo entero
+ * de la suite con su fase de llegada. Enseñar el mapa es parte de la casa:
+ * lo que aún no existe se ve en gris con su fase, no se esconde ni se finge.
  */
 
 let acciones = null;
 let sonidos = { carpeta: null, archivos: [] };
 let rutaSonando = null;
+let busqueda = '';
+
+// Los favoritos son cosa de la interfaz (como el tema): localStorage.
+const favoritos = (() => {
+  try { return new Set(JSON.parse(localStorage.getItem('pletina-favoritos') || '[]')); }
+  catch { return new Set(); }
+})();
+function guardarFavoritos() {
+  try { localStorage.setItem('pletina-favoritos', JSON.stringify([...favoritos])); }
+  catch { /* sin almacenamiento, sin drama */ }
+}
+
+const filaSonido = (archivo) => `
+    <div class="entrada sonido${archivo.ruta === rutaSonando ? ' sonando' : ''}" draggable="true" data-ruta="${esc(archivo.ruta)}"
+         title="clic: escuchar / parar · doble clic: importar en el cursor · arrastrar al arreglo — ${esc(archivo.ruta)}">
+      ${ICO.onda}<span>${esc(archivo.nombre)}</span>
+      ${archivo.ruta === rutaSonando ? '<span class="detalle">▶</span>' : ''}
+      <span class="fav${favoritos.has(archivo.ruta) ? ' activo' : ''}" title="Favorito: siempre arriba">★</span>
+    </div>`;
+
+/** Solo la lista: así teclear en la búsqueda no repinta el rail entero. */
+function pintarListaSonidos() {
+  const lista = $('#rail .lista-sonidos');
+  if (!lista) return;
+  lista.innerHTML = filtrarSonidos(sonidos.archivos, busqueda, favoritos).slice(0, 200).map(filaSonido).join('');
+  cablearSonidos(lista);
+}
+
+function cablearSonidos(contenedor) {
+  for (const fila of contenedor.querySelectorAll('.sonido')) {
+    const ruta = fila.dataset.ruta;
+
+    // Clic: escuchar (o parar si ya suena). Doble clic: importar en el cursor.
+    fila.addEventListener('click', async (evento) => {
+      if (evento.target.classList.contains('fav')) return;
+      if (rutaSonando === ruta) {
+        rutaSonando = null;
+        await acciones?.alPararPrevia?.();
+      } else {
+        rutaSonando = ruta;
+        await acciones?.alPrevia?.(ruta);
+      }
+      pintarListaSonidos();
+    });
+    fila.addEventListener('dblclick', () => {
+      rutaSonando = null;
+      acciones?.alPararPrevia?.();
+      acciones?.alImportarSonido?.(ruta);
+    });
+    fila.addEventListener('dragstart', (evento) => {
+      evento.dataTransfer.setData('text/pletina-ruta', ruta);
+      evento.dataTransfer.effectAllowed = 'copy';
+    });
+    fila.querySelector('.fav')?.addEventListener('click', (evento) => {
+      evento.stopPropagation();
+      if (favoritos.has(ruta)) favoritos.delete(ruta);
+      else favoritos.add(ruta);
+      guardarFavoritos();
+      pintarListaSonidos();
+    });
+  }
+}
 
 export function montarRail(inyectadas) {
   if (inyectadas) acciones = inyectadas;
@@ -28,19 +92,15 @@ export function montarRail(inyectadas) {
     <div class="entrada">${ICO.onda}<span>clips</span><span class="detalle">${clips}</span></div>
   `;
 
-  const filasSonidos = sonidos.archivos.slice(0, 200).map((archivo) => `
-    <div class="entrada sonido${archivo.ruta === rutaSonando ? ' sonando' : ''}" data-ruta="${esc(archivo.ruta)}"
-         title="clic: escuchar / parar · doble clic: importar en el cursor — ${esc(archivo.ruta)}">
-      ${ICO.onda}<span>${esc(archivo.nombre)}</span>
-      ${archivo.ruta === rutaSonando ? '<span class="detalle">▶</span>' : ''}
-    </div>`).join('');
   const navegador = `
     <h2>Sonidos</h2>
     <div class="entrada boton-carpeta" title="Elegir la carpeta de sonidos">
       ${ICO.carpeta}<span>${sonidos.carpeta ? esc(sonidos.carpeta.split(/[\\/]/).pop()) : 'elegir carpeta…'}</span>
       ${sonidos.archivos.length ? `<span class="detalle">${sonidos.archivos.length}</span>` : ''}
     </div>
-    ${filasSonidos}
+    ${sonidos.carpeta ? `<input class="busca-sonidos" type="search" placeholder="buscar…" value="${esc(busqueda)}"
+         title="Filtra por nombre, sin acentos ni mayúsculas; los ★ van siempre arriba">` : ''}
+    <div class="lista-sonidos"></div>
   `;
 
   const grupos = CATALOGO.map(({ grupo, dispositivos }) => {
@@ -55,6 +115,7 @@ export function montarRail(inyectadas) {
   }).join('');
 
   host.innerHTML = proyecto + navegador + grupos;
+  pintarListaSonidos();
 
   host.querySelector('.boton-carpeta')?.addEventListener('click', async () => {
     const resultado = await acciones?.alElegirCarpetaSonidos?.();
@@ -63,23 +124,8 @@ export function montarRail(inyectadas) {
       montarRail();
     }
   });
-  for (const fila of host.querySelectorAll('.sonido')) {
-    // Clic: escuchar (o parar si ya suena). Doble clic: importar en el cursor.
-    fila.addEventListener('click', async () => {
-      const ruta = fila.dataset.ruta;
-      if (rutaSonando === ruta) {
-        rutaSonando = null;
-        await acciones?.alPararPrevia?.();
-      } else {
-        rutaSonando = ruta;
-        await acciones?.alPrevia?.(ruta);
-      }
-      montarRail();
-    });
-    fila.addEventListener('dblclick', () => {
-      rutaSonando = null;
-      acciones?.alPararPrevia?.();
-      acciones?.alImportarSonido?.(fila.dataset.ruta);
-    });
-  }
+  host.querySelector('.busca-sonidos')?.addEventListener('input', (evento) => {
+    busqueda = evento.target.value;
+    pintarListaSonidos();
+  });
 }

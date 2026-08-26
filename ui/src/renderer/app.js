@@ -189,6 +189,11 @@ const accionesArreglo = {
     importarRutas(rutas, fila, inicio);
   },
 
+  alImportarRuta(ruta, fila, inicio) {
+    if (!conectado()) return soloConMotor();
+    importarRutas([ruta], fila, inicio);
+  },
+
   alPedirPicos(clip) {
     if (!conectado()) return Promise.resolve(null);
     return orden('clip.picos', { id: clip.id, porSegundo: 50 });
@@ -585,6 +590,7 @@ if (puente) {
           der: datos.der ?? -100,
           pistas: datos.pistas || [],
           grupos: datos.grupos || [],
+          cpu: datos.cpu ?? null,
           lufs: datos.lufs || null,
           espectro: datos.espectro || null,
           xy: datos.xy || null,
