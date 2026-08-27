@@ -28,7 +28,7 @@
     "icons": "node build/make-icons.mjs",
     "smoke": "node scripts/smoke.mjs",
     "verify": "npm run lint && npm test && npm run smoke",
-    "empaquetar": "electron-builder --win",
+    "empaquetar": "electron-builder --win --publish never",
     "empaquetar:dir": "electron-builder --dir"
   },
   "devDependencies": {
