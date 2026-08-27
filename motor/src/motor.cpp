@@ -2275,6 +2275,11 @@ juce::var Motor::grabar (const juce::var& params)
     const bool cuenta = params.hasProperty ("cuenta") && (bool) params["cuenta"];
     edit->setCountInMode (cuenta ? te::Edit::CountIn::oneBar : te::Edit::CountIn::none);
 
+    // Armar una pista deja el rearmado del grafo EN DIFERIDO; si el punch
+    // cae con el grafo en obras, la toma puede salir de un bloque. Aquí se
+    // despacha lo pendiente antes de pinchar.
+    edit->dispatchPendingUpdatesSynchronously();
+
     auto& transporte = edit->getTransport();
     transporte.ensureContextAllocated();
     transporte.record (false);
@@ -3358,11 +3363,31 @@ int Motor::autoprueba()
 
     // Grabar de verdad: tono de prueba en la entrada de la bomba, la pista 3
     // armada, y unas décimas de transporte en marcha. La toma tiene que
-    // aparecer como clip con archivo y con el tono dentro.
+    // aparecer como clip con archivo y con el tono dentro. La espera es por
+    // CONDICIÓN, no un sueño fijo: en un runner cargado, rearmar el grafo
+    // tras el punch puede comerse una espera entera (0,02 s grabados de
+    // 0,8) — se espera a que el transporte ruede grabando lo pedido.
+    auto esperarGrabando = [this, &pausa] (double segundosRodando)
+    {
+        double inicioRodando = -1.0;
+        for (int esperado = 0; esperado < 8000; esperado += 100)
+        {
+            pausa (100);
+            auto& transporte = edit->getTransport();
+            if (! transporte.isRecording())
+                continue;
+            const double ahora = transporte.getPosition().inSeconds();
+            if (inicioRodando < 0.0)
+                inicioRodando = ahora;
+            else if (ahora - inicioRodando > segundosRodando)
+                break;
+        }
+    };
+
     tonoEntrada.store (330.0f);
     armarPista (2, true, 0, false);
     grabar (objeto());
-    pausa (800);
+    esperarGrabando (0.6);
     parar();
     tonoEntrada.store (0.0f);
     pausa (300);
@@ -3388,7 +3413,7 @@ int Motor::autoprueba()
     notaEntrada.store (62);
     armarPista (3, true, 0, true);
     grabar (objeto());
-    pausa (1300);
+    esperarGrabando (1.0);
     parar();
     notaEntrada.store (-1);
     pausa (300);
