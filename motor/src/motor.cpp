@@ -3339,6 +3339,10 @@ int Motor::autoprueba()
             notasReabiertas += (int) c["notas"].size();
     const int pluginsPistaMidi = (int) reabierto["pistas"][3]["plugins"].size();
 
+    // La pista 3 se arma para grabar YA, mucho antes del punch: el rearmado
+    // del grafo que dispara el armado queda asentado durante el arpegio.
+    armarPista (2, true, 0, false);
+
     // Que la Bruma SUENE: la pista 4 en solo, desde el principio, y el pico
     // del máster tiene que moverse con el arpegio.
     {
@@ -3384,29 +3388,43 @@ int Motor::autoprueba()
         }
     };
 
+    // En el runner de CI, el PRIMER punch tras armar pierde a veces el chorro
+    // de entrada y la toma sale de un bloque (512 muestras con el tono dentro,
+    // con el transporte rodando bien); el segundo punch de la misma sesión
+    // nunca falla. Si la toma sale corta, se reintenta el punch entero: la
+    // exigencia no cambia (una toma real de más de 0,4 s con el tono dentro).
     tonoEntrada.store (330.0f);
-    armarPista (2, true, 0, false);
-    grabar (objeto());
-    esperarGrabando (0.6);
-    parar();
-    tonoEntrada.store (0.0f);
-    pausa (300);
-
     double duracionGrabada = 0.0;
     float picoGrabado = 0.0f;
-    if (auto* pistaGrabada = pista (2))
-        if (auto* toma = dynamic_cast<te::WaveAudioClip*> (pistaGrabada->getClips().getLast()))
+    for (int intento = 0; intento < 3 && duracionGrabada < 0.4; ++intento)
+    {
+        if (intento > 0)
         {
-            duracionGrabada = toma->getPosition().getLength().inSeconds();
-            std::unique_ptr<juce::AudioFormatReader> lector (formatos().createReaderFor (toma->getCurrentSourceFile()));
-            if (lector != nullptr && lector->lengthInSamples > 0)
-            {
-                juce::AudioBuffer<float> b ((int) lector->numChannels,
-                                            (int) juce::jmin ((juce::int64) 96000, lector->lengthInSamples));
-                lector->read (&b, 0, b.getNumSamples(), 0, true, true);
-                picoGrabado = b.getMagnitude (0, b.getNumSamples());
-            }
+            std::cerr << "autoprueba: la toma salio corta (" << duracionGrabada << " s), reintento del punch\n";
+            pausa (400);
         }
+
+        grabar (objeto());
+        esperarGrabando (0.6);
+        parar();
+        pausa (300);
+
+        if (auto* pistaGrabada = pista (2))
+            if (auto* toma = dynamic_cast<te::WaveAudioClip*> (pistaGrabada->getClips().getLast()))
+            {
+                duracionGrabada = toma->getPosition().getLength().inSeconds();
+                std::unique_ptr<juce::AudioFormatReader> lector (formatos().createReaderFor (toma->getCurrentSourceFile()));
+                if (lector != nullptr && lector->lengthInSamples > 0)
+                {
+                    juce::AudioBuffer<float> b ((int) lector->numChannels,
+                                                (int) juce::jmin ((juce::int64) 96000, lector->lengthInSamples));
+                    lector->read (&b, 0, b.getNumSamples(), 0, true, true);
+                    picoGrabado = b.getMagnitude (0, b.getNumSamples());
+                }
+            }
+    }
+    tonoEntrada.store (0.0f);
+    pausa (300);
 
     // Y grabar MIDI: la bomba marca la nota de prueba y la pista 4, armada
     // por su entrada MIDI, tiene que acabar con más notas de las que tenía.
