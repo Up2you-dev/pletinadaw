@@ -14,6 +14,9 @@ jobs:
     name: instaladores · Windows
     runs-on: windows-latest
     timeout-minutes: 120
+    # El último paso crea (o completa) el release del tag: necesita escribir.
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
