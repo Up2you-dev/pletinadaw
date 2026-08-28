@@ -1796,12 +1796,27 @@ juce::var Motor::deshacerRack (int indicePista, int indice)
     asegurarEdit();
     auto* rack = rackEn (indicePista, indice);
 
+    // Los parámetros con macro asignada, apuntados ANTES de explotar: al
+    // desengancharse las macros nadie recalcula su valor vivo y, con una
+    // macro caliente, el modelo enseñaría el valor con el aporte sumado
+    // aunque la base (lo que persiste y lo que suena en línea) esté
+    // intacta. Comprobado con una sonda: guardar y reabrir ya lo enseñaba
+    // bien; esto lo deja bien también en caliente.
+    juce::ReferenceCountedArray<te::AutomatableParameter> afectados;
+    for (auto* contenido : rack->type->getPlugins())
+        for (auto parametro : contenido->getAutomatableParameters())
+            if (! parametro->getAssignments().isEmpty())
+                afectados.add (parametro);
+
     edit->getUndoManager().beginNewTransaction ("deshacer rack");
 
     // Devuelve los plugins en línea a la cadena; si era la última instancia,
     // el propio motor borra el tipo. El barrido caza cualquier otro resto.
     rack->replaceRackWithPluginSequence (nullptr);
     recogerRacksHuerfanos();
+
+    for (auto parametro : afectados)
+        parametro->updateFromAutomationSources (edit->getTransport().getPosition());
 
     emitirModelo();
     return listarPistas();
