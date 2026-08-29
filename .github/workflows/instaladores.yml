@@ -1,10 +1,17 @@
 # Instaladores de Windows: motor + interfaz empaquetados con electron-builder
 # (NSIS, portable y zip). Se lanza a mano o al etiquetar una versión; los
-# artefactos quedan colgados del run (y del release, si el disparo fue un tag).
+# artefactos quedan colgados del run (y del release, si el disparo fue un tag
+# o el disparo manual trae etiqueta — en ese caso el release crea el tag
+# sobre el commit del run, útil cuando quien lanza no puede empujar tags).
 name: instaladores
 
 on:
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Etiqueta del release (p. ej. v0.1.0); vacía = solo artefactos'
+        required: false
+        default: ''
   push:
     tags:
       - 'v*'
@@ -55,10 +62,12 @@ jobs:
             ui/dist/*.zip
           if-no-files-found: error
 
-      - name: colgar del release si esto es un tag
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: colgar del release si esto es un tag (o el disparo trae etiqueta)
+        if: startsWith(github.ref, 'refs/tags/v') || inputs.tag != ''
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ inputs.tag || github.ref_name }}
+          body_path: CHANGELOG.md
           files: |
             ui/dist/PletinaDAW-*-instalador.exe
             ui/dist/PletinaDAW-*-portable.exe
